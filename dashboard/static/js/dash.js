@@ -62,6 +62,7 @@ var setting_template = '       \
   <li class="dropdown">        \
     <a href="#" class="dropdown-toggle" data-toggle="dropdown" style="padding: 2px 2px;"><span class="fa fa-fw fa-lg fa-cog" style="color: green"></span></a>  \
     <ul class="dropdown-menu" style="min-width: 20px;">                              \
+      <li onclick=duplicateDash({0})><a href="#"><span class="fa fa-fw fa-sm fa-copy"></span></a></li>  \
       <li ><a><span class="fa fa-fw fa-sm fa-group"></span></a></li>        \
       <li class="divider" style="margin: auto;"></li>                                \
       <li onclick=deleteDash({0})><a href="#"><span class="fa fa-fw fa-sm fa-times-circle"></span></a></li> \
@@ -506,6 +507,53 @@ function deleteDash(dash_id) {
     .fail(function(){console.log("ajax fail")})
     .success(function(){
         location.reload();
+    })
+    .complete(function(){console.log("ajax complete")})
+    .always(function(){console.log("ajax always")});
+}
+
+
+function duplicateDash(dash_id) {
+    $.ajax({
+        url: api_root + "data/dash/" + dash_id + "/duplicate",
+        method: "POST",
+        contentType: "application/json",
+    })
+    .done(function(data){console.log("ajax done");})
+    .fail(function(){
+        console.log("ajax fail");
+        my_alert("Failed to duplicate dashboard", true);
+    })
+    .success(function(data){
+        if (data.code == 200) {
+            my_alert("Dashboard duplicated successfully");
+            location.reload();
+        } else {
+            my_alert("Failed to duplicate: " + (data.message || "unknown error"), true);
+        }
+    })
+    .complete(function(){console.log("ajax complete")})
+    .always(function(){console.log("ajax always")});
+}
+
+
+function duplicateDashAndOpen(dash_id) {
+    $.ajax({
+        url: api_root + "data/dash/" + dash_id + "/duplicate",
+        method: "POST",
+        contentType: "application/json",
+    })
+    .done(function(data){console.log("ajax done");})
+    .fail(function(){
+        console.log("ajax fail");
+        my_alert("Failed to duplicate dashboard", true);
+    })
+    .success(function(data){
+        if (data.code == 200) {
+            window.location.href = api_root + "dash/" + data.data.id;
+        } else {
+            my_alert("Failed to duplicate: " + (data.message || "unknown error"), true);
+        }
     })
     .complete(function(){console.log("ajax complete")})
     .always(function(){console.log("ajax always")});

@@ -18,6 +18,7 @@ DASH_ID_KEY = "dash_id"
 DASH_META_KEY = "dash_meta"
 DASH_CONTENT_KEY = "dash_content"
 DASH_DELETED_KEY = "dash_deleted"
+DASH_ID_COUNTER_KEY = "dash_id_counter"
 
 # database
 sql_type = 'mysql'   # currently just support mysql
