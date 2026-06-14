@@ -2,21 +2,15 @@
 
 # built-in package
 import time
-import json
-import random
-import hashlib
 
 # third-party package
 import sqlparse
-from pygments import highlight
-from pygments.lexers import SqlLexer
-from pygments.formatters import HtmlFormatter
 from flask.ext.restful import Resource
-from flask import request, make_response, render_template, redirect
+from flask import request, make_response, render_template
 
 # user-defined package
-from dashboard import r_db, config
-from ..utils import build_response, print_info, SQL
+from dashboard import config
+from ..utils import build_response, SQL, split_statements
 
 
 class Sql(Resource):
@@ -42,40 +36,93 @@ class SqlData(Resource):
 
         post data format:
 
-            {"options": ['all', 'last', 'first', 'format'], "sql_raw": "raw sql ..."}
+            {"options": "all" | "selected" | "first" | "last" | "format",
+             "sql_raw": "raw sql ..."}
+
+        Execution modes:
+            all      - execute entire editor content as one call
+            selected - execute only the highlighted text
+            first    - split by semicolons, execute the first non-empty statement
+            last     - split by semicolons, execute the last non-empty statement
+            format   - format SQL (uppercase keywords, re-indent), no execution
 
         Returns:
-            sql result.
+            JSON response with structure:
+                status:  'success' | 'error' | 'warning' | 'info'
+                data:    query result dict, None, or formatted SQL string
+                message: human-readable description
+                ...
         '''
-        ## format sql
-
         data = request.get_json()
-        options, sql_raw = data.get('options'), data.get('sql_raw')
+        if not data:
+            return build_response(dict(
+                status='error', data=None, code=400,
+                message='No request data received'))
 
+        options = data.get('options', '')
+        sql_raw = data.get('sql_raw', '')
+
+        # --- Format (no execution) ---
         if options == 'format':
-            sql_formmated = sqlparse.format(sql_raw, keyword_case='upper', reindent=True)
-            return build_response(dict(data=sql_formmated, code=200))
+            if not sql_raw or not sql_raw.strip():
+                return build_response(dict(
+                    status='warning', data=None, code=200,
+                    message='No SQL content to format'))
+            sql_formatted = sqlparse.format(
+                sql_raw, keyword_case='upper', reindent=True)
+            return build_response(dict(
+                status='success', data=sql_formatted, code=200,
+                message='SQL formatted'))
 
+        # --- Validate: non-format modes require content ---
+        if not sql_raw or not sql_raw.strip():
+            return build_response(dict(
+                status='warning', data=None, code=200,
+                message='No SQL to execute'))
+
+        # --- Determine which SQL to run ---
+        start_time = time.time()
+        sql_to_run = None
+        exec_mode = options
+
+        if options in ('first', 'last'):
+            statements = split_statements(sql_raw)
+            if not statements:
+                return build_response(dict(
+                    status='warning', data=None, code=200,
+                    message='No valid SQL statements found'))
+            sql_to_run = statements[0] if options == 'first' else statements[-1]
         elif options in ('all', 'selected'):
+            sql_to_run = sql_raw
+        else:
+            return build_response(dict(
+                status='error', data=None, code=400,
+                message='Unknown execution mode: {}'.format(options)))
+
+        # --- Execute ---
+        try:
             conn = SQL(config.sql_host, config.sql_port, config.sql_user,
                        config.sql_pwd, config.sql_db)
+            result = conn.run(sql_to_run)
+            elapsed = round(time.time() - start_time, 3)
 
-            result = conn.run(sql_raw)
-            return build_response(dict(data=result, code=200))
-        else:
+            if result['status'] == 'query' and result['row_count'] == 0:
+                return build_response(dict(
+                    status='info', data=None, code=200,
+                    message='Query returned 0 rows',
+                    exec_mode=exec_mode, elapsed=elapsed,
+                    sql_preview=sql_to_run[:200]))
 
-            pass
+            return build_response(dict(
+                status='success', data=result, code=200,
+                message='Query returned {} row(s)'.format(result['row_count']),
+                exec_mode=exec_mode, elapsed=elapsed,
+                sql_preview=sql_to_run[:200]))
 
-
-
-
-
-
-
-        pass
-
-
-
-
-
-##
+        except Exception as e:
+            elapsed = round(time.time() - start_time, 3)
+            return build_response(dict(
+                status='error', data=None, code=200,
+                message=str(e),
+                exec_mode=exec_mode, elapsed=elapsed,
+                sql_preview=sql_to_run[:200]))

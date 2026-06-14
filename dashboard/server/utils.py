@@ -10,6 +10,7 @@ from functools import wraps
 # third-party package
 import MySQLdb
 import pandas as pd
+import sqlparse
 from flask import make_response, jsonify
 
 # user-defined package
@@ -114,31 +115,70 @@ class Singleton(type):
 class SQL(object):
     __metaclass__ = Singleton
 
-    """docstring for SQL"""
+    """MySQL connection wrapper with reconnect and write-operation support."""
     def __init__(self, host, port, user, passwd, db):
         super(SQL, self).__init__()
-        self.conn = MySQLdb.connect(host=host, port=port, user=user, passwd=passwd,
-                                    db=db)
+        self.host = host
+        self.port = port
+        self.user = user
+        self.passwd = passwd
+        self.db = db
+        self.conn = MySQLdb.connect(host=host, port=port, user=user,
+                                    passwd=passwd, db=db)
 
     def get_conn(self):
         try:
             self.conn.stat()
         except:
-            self.conn = MySQLdb.connect(host=host, port=port, user=user, passwd=passwd,
-                                        db=db)
-
+            self.conn = MySQLdb.connect(host=self.host, port=self.port,
+                                        user=self.user, passwd=self.passwd,
+                                        db=self.db)
         return self.conn
 
     def run(self, sql):
+        """Execute SQL and return a structured result dict.
+
+        Returns:
+            dict with keys:
+                status: 'query' | 'write'
+                data:   column-oriented dict (query) or None (write)
+                columns: list of column names (query) or [] (write)
+                row_count: number of result rows (query) or affected rows (write)
+        """
         self.get_conn()
         cursor = self.conn.cursor()
         cursor.execute(sql)
-        result = cursor.fetchall()
-        cursor.close()
 
         if cursor.description:
-            columns = [i[0] for i in cursor.description]
+            columns = [desc[0] for desc in cursor.description]
+            result = cursor.fetchall()
+            cursor.close()
             frame = pd.DataFrame.from_records(list(result), columns=columns)
-            return frame.to_dict()
+            return {
+                'status': 'query',
+                'data': frame.to_dict(),
+                'columns': columns,
+                'row_count': len(result),
+            }
+        else:
+            affected = cursor.rowcount
+            self.conn.commit()
+            cursor.close()
+            return {
+                'status': 'write',
+                'data': None,
+                'columns': [],
+                'row_count': affected,
+            }
 
-        return None
+
+def split_statements(sql_text):
+    """Split SQL text into individual non-empty statements.
+
+    Uses sqlparse to split by semicolons, then filters out blank fragments.
+
+    Returns:
+        list of stripped, non-empty SQL statement strings.
+    """
+    parts = sqlparse.split(sql_text)
+    return [s.strip() for s in parts if s.strip()]

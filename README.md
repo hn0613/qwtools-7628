@@ -154,6 +154,48 @@ A stand alone, light-weight web server for building, sharing graphs created in I
     + ***IPython-Dashboard-Tutorial.ipynb*** : [On nbviewer](http://nbviewer.ipython.org/github/litaotao/IPython-Dashboard/blob/master/docs/IPython-Dashboard-Tutorial.ipynb) or [On github](https://github.com/litaotao/IPython-Dashboard/blob/master/docs/IPython-Dashboard-Tutorial.ipynb)
 
 
+# SQL Editor — Execution Modes & Behavior
+
+The SQL page (`/sql`) provides an Ace editor with five toolbar actions. Each action follows a defined front-to-back workflow so that what you see in the editor matches what the backend actually executes.
+
+## Execution Modes
+
+| Button | What Gets Executed | How the Text Is Selected |
+|--------|-------------------|--------------------------|
+| **run all** | Entire editor content | `editor.getValue()` — all text in the editor |
+| **run selected** | Highlighted text only | `editor.getSelectedText()` — only the current selection |
+| **run first** | First non-empty statement | Editor text is split by `;` (via `sqlparse`); the first fragment is executed |
+| **run last** | Last non-empty statement | Same splitting; the last fragment is executed |
+| **format** | No execution | SQL is reformatted (keywords uppercased, re-indented) and replaced in the editor |
+
+## Statement Boundary Rules
+
+- Statements are split by **semicolons** using `sqlparse.split()`.
+- Blank fragments (whitespace-only or semicolons-only) are filtered out before selecting first/last.
+- To run a specific statement in the middle of the editor, use **run selected** after highlighting it.
+- `run all` sends the entire content as a single call — MySQL will execute the first statement only (standard `cursor.execute` behavior). Do not rely on `run all` to batch-execute multiple statements.
+
+## Feedback & Error Handling
+
+| Scenario | Frontend Behavior |
+|----------|-------------------|
+| Editor empty, nothing to run | Status bar shows "Editor is empty — nothing to execute." (warning) |
+| Selection is blank | Status bar shows "No text selected" (warning) |
+| Only semicolons/whitespace for first/last | Status bar shows "No valid SQL statements found" (warning) |
+| SQL syntax error or MySQL error | Status bar shows the MySQL error message (error); previous result remains visible |
+| Query returns 0 rows | Status bar shows "Query returned 0 rows" (info); result area is cleared |
+| INSERT/UPDATE/DELETE | Status bar shows affected row count (success); result area is cleared |
+| Network or server unreachable | Status bar shows connection error (error) |
+| Successful query | Result table rendered in the result area; status bar shows row count and elapsed time |
+
+## Known Limitations
+
+- **MySQL only** — configured via `dashboard/conf/config.py` (`sql_host`, `sql_port`, `sql_user`, `sql_pwd`, `sql_db`).
+- **Single connection** — the backend uses a singleton MySQL connection; not designed for concurrent users.
+- **Write operations are committed immediately** — INSERT/UPDATE/DELETE auto-commit after execution.
+- **Chart visualization for SQL results** — the chart-type buttons (bar/line/pie/area) in the result viewer are placeholders for future work.
+
+
 # Goal
 
 - support raw html visualization

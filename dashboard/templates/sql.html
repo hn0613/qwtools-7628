@@ -6,11 +6,11 @@
         <!-- sql editor -->
         <div>
             <div class="btn-group" id="graph-type">
-                <button type="button" class="btn btn-default btn-sm btn-chart" onclick="runSql('all')"><i class="fa fa-fw fa-lg fa-sort-amount-asc"></i>run all</button>
-                <button type="button" class="btn btn-default btn-sm btn-chart" onclick="runSql('selected')"><i class="fa fa-fw fa-lg fa-shield"></i>run selected</button>
-                <button type="button" class="btn btn-default btn-sm btn-chart" onclick="runSql('first')"><i class="fa fa-fw fa-lg fa-level-up"></i>run first</button>
-                <button type="button" class="btn btn-default btn-sm btn-chart" onclick="runSql('last')"><i class="fa fa-fw fa-lg fa-level-down"></i>run last</button>
-                <button type="button" class="btn btn-default btn-sm btn-chart" onclick="runSql('format')"><i class="fa fa-fw fa-lg fa-outdent"></i> format</button>
+                <button type="button" class="btn btn-default btn-sm btn-chart" onclick="runSql('all')" title="Execute the entire editor content"><i class="fa fa-fw fa-lg fa-sort-amount-asc"></i>run all</button>
+                <button type="button" class="btn btn-default btn-sm btn-chart" onclick="runSql('selected')" title="Execute only the highlighted text"><i class="fa fa-fw fa-lg fa-shield"></i>run selected</button>
+                <button type="button" class="btn btn-default btn-sm btn-chart" onclick="runSql('first')" title="Run the first statement (split by semicolons)"><i class="fa fa-fw fa-lg fa-level-up"></i>run first</button>
+                <button type="button" class="btn btn-default btn-sm btn-chart" onclick="runSql('last')" title="Run the last statement (split by semicolons)"><i class="fa fa-fw fa-lg fa-level-down"></i>run last</button>
+                <button type="button" class="btn btn-default btn-sm btn-chart" onclick="runSql('format')" title="Format SQL: uppercase keywords, re-indent"><i class="fa fa-fw fa-lg fa-outdent"></i> format</button>
             </div>
             <div style="width: 100%; height: 300px">
                 <div class="editor" type=textarea>
@@ -18,6 +18,7 @@
                     </div>
                 </div>
             </div>
+            <div id="sql-exec-status" class="sql-exec-status" style="display: none;"></div>
        </div>
 
        <!-- sql result viewer -->

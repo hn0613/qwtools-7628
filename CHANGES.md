@@ -1,4 +1,18 @@
 
+- V 0.1.7 : sql-execution-workflow
+
+    - SQL Editor
+        + Fixed `run first` / `run last` buttons — now properly split SQL by semicolons and execute the first or last non-empty statement
+        + Added input validation: empty editor, blank selection, and invalid statements now produce clear warnings instead of silent failures
+        + Added structured error handling: MySQL errors, network failures, and empty results all display informative messages in the status bar
+        + Added execution metadata: status bar shows execution mode, elapsed time, and row count/affected rows
+        + Fixed write-operation support: INSERT/UPDATE/DELETE now commit and report affected row count
+        + Fixed `SQL.get_conn()` scoping bug (reconnect now uses stored connection params)
+        + Added tooltips to toolbar buttons explaining each execution mode
+        + Added `split_statements()` utility for semicolon-based statement parsing
+        + Added comprehensive test suite (`testSqlExecution.py`) covering all execution modes and edge cases
+        + Updated README with SQL execution mode documentation
+
 - V 0.1.4 : sql-ui-optimize
 
     - Dashboard

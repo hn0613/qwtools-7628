@@ -247,3 +247,15 @@ related questions: http://stackoverflow.com/questions/23333231/bootstrap-button-
     width: inherit;
     height: inherit;
 }
+
+/* SQL execution status bar */
+.sql-exec-status {
+    padding: 6px 12px;
+    font-size: 13px;
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    border-radius: 0 0 3px 3px;
+    border: 1px solid #ddd;
+    border-top: none;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+}
