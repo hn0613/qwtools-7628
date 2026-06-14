@@ -8,6 +8,7 @@ from .resources.dash import Dash, DashData
 from .resources.home import Home, DashListData
 from .resources.status import Status
 from .resources.sql import Sql, SqlData
+from .resources.test_table import TestTable
 
 
 @app.after_request
@@ -37,6 +38,9 @@ api.add_resource(DashData, '/data/dash/<string:dash_id>')
 # sql page
 api.add_resource(Sql, '/sql/')
 api.add_resource(SqlData, '/data/sql/')
+
+# test pages
+api.add_resource(TestTable, '/test/table')
 
 # server info
 api.add_resource(Status, '/__info__')

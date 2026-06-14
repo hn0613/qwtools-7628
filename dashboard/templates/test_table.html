@@ -1,0 +1,235 @@
+
+{% extends "layout.html" %}
+
+{% block main_content %}
+<div id="main-content" style="padding: 20px;">
+    <h2>DashTable Unit Tests</h2>
+    <p style="color: #666;">Automated tests for the unified <code>DashTable</code> module (dash.table.js).</p>
+    <hr>
+    <div id="test-results" style="font-family: monospace; font-size: 13px;"></div>
+    <hr>
+    <div id="test-sandbox" style="display: none;">
+        <div id="sandbox-1" style="width: 100%; height: 500px; overflow: auto;"></div>
+        <div id="sandbox-2" style="width: 100%; height: 500px; overflow: auto;"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script type="text/javascript">
+    store.set("api_root", "http://" + $("meta[name=api_root]")[0].attributes.value.value + "/");
+    api_root = store.get("api_root");
+</script>
+
+<script type="text/javascript">
+/**
+ * Lightweight test harness — no external framework needed.
+ */
+var TestRunner = (function () {
+    var passed = 0, failed = 0, results = [];
+
+    function assert(condition, message) {
+        if (!condition) {
+            throw new Error("Assertion failed: " + message);
+        }
+    }
+
+    function run(name, fn) {
+        try {
+            fn();
+            passed++;
+            results.push('<div style="color: green;">&#10003; PASS: ' + name + '</div>');
+        } catch (e) {
+            failed++;
+            results.push('<div style="color: red;">&#10007; FAIL: ' + name + ' — ' + e.message + '</div>');
+        }
+    }
+
+    function report() {
+        var summary = '<h4>Results: ' + passed + ' passed, ' + failed + ' failed, ' +
+                      (passed + failed) + ' total</h4>';
+        document.getElementById('test-results').innerHTML = summary + results.join('');
+        // Show sandbox for debugging if any test failed
+        if (failed > 0) {
+            document.getElementById('test-sandbox').style.display = 'block';
+        }
+    }
+
+    return { run: run, assert: assert, report: report };
+})();
+
+
+// ── Test data fixtures ───────────────────────────────────────────────
+
+var sampleData = {
+    "name": { "0": "Alice", "1": "Bob", "2": "Charlie" },
+    "age":  { "0": 30, "1": 25, "2": 35 },
+    "city": { "0": "Beijing", "1": "Shanghai", "2": "Shenzhen" }
+};
+
+var dataWithNulls = {
+    "name":  { "0": "Alice", "1": null, "2": "Charlie" },
+    "value": { "0": 100, "1": 200, "2": null }
+};
+
+var emptyColumns = {};
+
+var columnsNoRows = {
+    "col_a": {},
+    "col_b": {}
+};
+
+var longContentData = {
+    "id": { "0": "1" },
+    "description": { "0": "A".repeat(500) }
+};
+
+
+// ── Tests ────────────────────────────────────────────────────────────
+
+$(document).ready(function () {
+
+    // 1. Normal data rendering
+    TestRunner.run("Normal data: renders table with correct columns and rows", function () {
+        DashTable.clearContainer("#sandbox-1");
+        var result = DashTable.renderTable(sampleData, "#sandbox-1", {showAxesSelectors: false});
+        TestRunner.assert(result.success === true, "should return success=true");
+        TestRunner.assert(result.table !== null, "should return a table element");
+        var table = $("#sandbox-1 table")[0];
+        TestRunner.assert(table !== undefined, "table element should exist in DOM");
+        var ths = $(table).find("thead th");
+        // +1 for the corner cell
+        TestRunner.assert(ths.length === 4, "should have 4 header cells (1 corner + 3 columns), got " + ths.length);
+        var trs = $(table).find("tbody tr");
+        TestRunner.assert(trs.length === 3, "should have 3 body rows, got " + trs.length);
+    });
+
+    // 2. Cell content correctness
+    TestRunner.run("Normal data: cell values match source data", function () {
+        DashTable.clearContainer("#sandbox-1");
+        DashTable.renderTable(sampleData, "#sandbox-1", {showAxesSelectors: false});
+        var tds = $("#sandbox-1 table tbody tr:first-child td");
+        // first td is the row index (th), so tds start from data columns
+        var firstRowTds = $("#sandbox-1 table tbody tr:first-child");
+        TestRunner.assert(firstRowTds.find("td").eq(0).text() === "Alice", "first cell should be 'Alice'");
+        TestRunner.assert(firstRowTds.find("td").eq(1).text() === "30", "second cell should be '30'");
+    });
+
+    // 3. null data
+    TestRunner.run("Null data: renders empty state", function () {
+        DashTable.clearContainer("#sandbox-1");
+        var result = DashTable.renderTable(null, "#sandbox-1");
+        TestRunner.assert(result.success === false, "should return success=false");
+        TestRunner.assert($("#sandbox-1 .dash-table-empty").length === 1, "should show empty state");
+    });
+
+    // 4. undefined data
+    TestRunner.run("Undefined data: renders empty state", function () {
+        DashTable.clearContainer("#sandbox-1");
+        var result = DashTable.renderTable(undefined, "#sandbox-1");
+        TestRunner.assert(result.success === false, "should return success=false");
+        TestRunner.assert($("#sandbox-1 .dash-table-empty").length === 1, "should show empty state");
+    });
+
+    // 5. Empty object
+    TestRunner.run("Empty object {}: renders empty state", function () {
+        DashTable.clearContainer("#sandbox-1");
+        var result = DashTable.renderTable({}, "#sandbox-1");
+        TestRunner.assert(result.success === false, "should return success=false");
+        TestRunner.assert($("#sandbox-1 .dash-table-empty").length === 1, "should show empty state");
+    });
+
+    // 6. Columns with no rows
+    TestRunner.run("Columns with no rows: renders empty state", function () {
+        DashTable.clearContainer("#sandbox-1");
+        var result = DashTable.renderTable(columnsNoRows, "#sandbox-1");
+        TestRunner.assert(result.success === false, "should return success=false");
+        TestRunner.assert($("#sandbox-1 .dash-table-empty").length === 1, "should show empty state");
+    });
+
+    // 7. Null cell values
+    TestRunner.run("Null cell values: renders empty string, does not crash", function () {
+        DashTable.clearContainer("#sandbox-1");
+        var result = DashTable.renderTable(dataWithNulls, "#sandbox-1", {showAxesSelectors: false});
+        TestRunner.assert(result.success === true, "should return success=true");
+        // Second row, first data column (name) should be empty
+        var secondRow = $("#sandbox-1 table tbody tr:nth-child(2)");
+        TestRunner.assert(secondRow.find("td").eq(0).text() === "", "null name should render as empty");
+        // Check null cell has the null class
+        TestRunner.assert(secondRow.find("td").eq(0).hasClass("dash-table-cell-null"), "null cell should have dash-table-cell-null class");
+    });
+
+    // 8. clearBefore: true
+    TestRunner.run("clearBefore: true clears existing content", function () {
+        $("#sandbox-1").html("<p>existing content</p>");
+        DashTable.renderTable(sampleData, "#sandbox-1", {clearBefore: true, showAxesSelectors: false});
+        TestRunner.assert($("#sandbox-1 p").length === 0, "existing content should be cleared");
+        TestRunner.assert($("#sandbox-1 table").length === 1, "table should exist");
+    });
+
+    // 9. clearBefore: false
+    TestRunner.run("clearBefore: false appends to existing content", function () {
+        $("#sandbox-1").html("<p>existing content</p>");
+        DashTable.renderTable(sampleData, "#sandbox-1", {clearBefore: false, showAxesSelectors: false});
+        TestRunner.assert($("#sandbox-1 p").length === 1, "existing content should remain");
+        TestRunner.assert($("#sandbox-1 table").length === 1, "table should be appended");
+    });
+
+    // 10. showAxesSelectors: true
+    TestRunner.run("showAxesSelectors: true renders dropdown headers", function () {
+        DashTable.clearContainer("#sandbox-1");
+        DashTable.renderTable(sampleData, "#sandbox-1", {showAxesSelectors: true});
+        var btnGroups = $("#sandbox-1 table thead .btn-group");
+        TestRunner.assert(btnGroups.length === 3, "should have 3 btn-group dropdowns, got " + btnGroups.length);
+    });
+
+    // 11. showAxesSelectors: false
+    TestRunner.run("showAxesSelectors: false renders plain headers", function () {
+        DashTable.clearContainer("#sandbox-1");
+        DashTable.renderTable(sampleData, "#sandbox-1", {showAxesSelectors: false});
+        var btnGroups = $("#sandbox-1 table thead .btn-group");
+        TestRunner.assert(btnGroups.length === 0, "should have 0 btn-group dropdowns, got " + btnGroups.length);
+        var colNames = $("#sandbox-1 table thead .dash-table-col-name");
+        TestRunner.assert(colNames.length === 3, "should have 3 plain column names, got " + colNames.length);
+    });
+
+    // 12. Long content truncation
+    TestRunner.run("Long content: truncates and adds title attribute", function () {
+        DashTable.clearContainer("#sandbox-1");
+        DashTable.renderTable(longContentData, "#sandbox-1", {maxCellLength: 50, showAxesSelectors: false});
+        var td = $("#sandbox-1 table tbody tr:first-child td").last();
+        TestRunner.assert(td.text().length < 500, "text should be truncated");
+        TestRunner.assert(td.attr("title") !== undefined, "should have title attribute");
+        TestRunner.assert(td.attr("title").length === 500, "title should contain full text");
+        TestRunner.assert(td.hasClass("dash-table-cell-truncated"), "should have truncation class");
+    });
+
+    // 13. Invalid selector
+    TestRunner.run("Invalid selector: returns error", function () {
+        var result = DashTable.renderTable(sampleData, "#nonexistent-container");
+        TestRunner.assert(result.success === false, "should return success=false");
+        TestRunner.assert(result.error !== null, "should have an error message");
+    });
+
+    // 14. Loading state
+    TestRunner.run("Loading state: renders spinner and message", function () {
+        DashTable.clearContainer("#sandbox-1");
+        DashTable.renderLoadingState("#sandbox-1", "Please wait...");
+        TestRunner.assert($("#sandbox-1 .dash-table-loading").length === 1, "should show loading state");
+        TestRunner.assert($("#sandbox-1 .dash-table-loading p").text() === "Please wait...", "should show custom message");
+        TestRunner.assert($("#sandbox-1 .fa-spin").length === 1, "should have a spinning icon");
+    });
+
+    // 15. Error state
+    TestRunner.run("Error state: renders error icon and message", function () {
+        DashTable.clearContainer("#sandbox-1");
+        DashTable.renderErrorState("#sandbox-1", "Something went wrong");
+        TestRunner.assert($("#sandbox-1 .dash-table-error").length === 1, "should show error state");
+        TestRunner.assert($("#sandbox-1 .dash-table-error p").text() === "Something went wrong", "should show error message");
+    });
+
+    // Generate report
+    TestRunner.report();
+});
+</script>
+{% endblock %}

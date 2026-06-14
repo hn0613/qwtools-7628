@@ -41,7 +41,8 @@ class Key(Resource):
         """Get a key-value from storage according to the key name.
         """
         data = r_kv.get(key)
-        # data = json.dumps(data) if isinstance(data, str) else data
-        # data = json.loads(data) if data else {}
+
+        if data is None:
+            return build_response(dict(data=None, code=404, error='Key not found: ' + key))
 
         return build_response(dict(data=data, code=200))

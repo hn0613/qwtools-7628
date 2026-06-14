@@ -139,6 +139,9 @@ class SQL(object):
         if cursor.description:
             columns = [i[0] for i in cursor.description]
             frame = pd.DataFrame.from_records(list(result), columns=columns)
+            # Replace NaN with None so JSON serialisation produces null.
+            # Must cast to object first — float columns cannot hold None.
+            frame = frame.astype(object).where(pd.notnull(frame), None)
             return frame.to_dict()
 
         return None

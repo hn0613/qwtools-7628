@@ -57,11 +57,15 @@ class SqlData(Resource):
             return build_response(dict(data=sql_formmated, code=200))
 
         elif options in ('all', 'selected'):
-            conn = SQL(config.sql_host, config.sql_port, config.sql_user,
-                       config.sql_pwd, config.sql_db)
+            try:
+                conn = SQL(config.sql_host, config.sql_port, config.sql_user,
+                           config.sql_pwd, config.sql_db)
 
-            result = conn.run(sql_raw)
-            return build_response(dict(data=result, code=200))
+                result = conn.run(sql_raw)
+                return build_response(dict(data=result, code=200))
+            except Exception as e:
+                error_msg = str(e) if e else 'Unknown SQL execution error'
+                return build_response(dict(data=None, code=500, error=error_msg))
         else:
 
             pass

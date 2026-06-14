@@ -141,9 +141,19 @@ function drawChartIntoGrid(type, graph_id){
     var modalData = store.get("modal");
     var key = modalData.key;
     var data = store.get(key);
+
+    // Guard: no data — show empty state for table, skip for charts
+    if (!data || typeof data !== 'object') {
+        if (type == 'table') {
+            DashTable.renderEmptyState(selector, "No data available for this key.");
+            return true;
+        }
+        console.log("No data available for chart type: " + type);
+        return false;
+    }
     //
     if (type == 'table') {
-        parseTable(data, selector);
+        DashTable.renderTable(data, selector, {showAxesSelectors: false});
         return true;
     };
 
@@ -193,9 +203,19 @@ function initChart(type, graph_id){
     var current_graph = current_dash.grid[graph_id];
     var key = current_graph.key;
     var data = store.get(key);
+
+    // Guard: no data — show empty state for table, skip for charts
+    if (!data || typeof data !== 'object') {
+        if (type == 'table') {
+            DashTable.renderEmptyState(selector, "No data available for this key.");
+            return true;
+        }
+        console.log("No data available for chart type: " + type);
+        return false;
+    }
     //
     if (type == 'table') {
-        parseTable(data, selector);
+        DashTable.renderTable(data, selector, {showAxesSelectors: false});
         return true;
     };
 
@@ -245,8 +265,18 @@ function drawChartIntoModal(type){
     // clear content if exissted for creating new content
     $.each($("#value")[0].children, function(index, obj){$("#value")[0].removeChild(obj)})
 
+    // Guard: no data — show empty state for table, skip for charts
+    if (!data || typeof data !== 'object') {
+        if (type == 'table') {
+            DashTable.renderEmptyState("#value", "No data available. Please select a key.");
+            return true;
+        }
+        console.log("No data available for chart type: " + type);
+        return false;
+    }
+
     if (type == 'table') {
-        parseTable(data, "#value");
+        DashTable.renderTable(data, "#value", {showAxesSelectors: true});
         return true;
     };
 

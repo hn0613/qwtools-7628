@@ -44,17 +44,7 @@ var box_template = ' \
   </div>                           \
 </div>';
 
-// the head row of a table
-var th_template = '                  \
-<div class="btn-group">              \
-  <button type="button" class="btn btn-xs dropdown-toggle btn-success" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="padding: 0px 0px;">  \
-    {0} <span class="caret"></span>  \
-  </button>                          \
-  <ul class="dropdown-menu">         \
-    <li style="width: 50px;"><input type="checkbox" onclick="markXy(this, 1)" style="margin-left: 15px;">   x</li> \
-    <li style="width: 50px;"><input type="checkbox" onclick="markXy(this, 0)" style="margin-left: 15px;">   y</li> \
-  </ul>                              \
-</div>'
+// th_template has been moved to dash.table.js (thTemplateWithAxes)
 
 // setting dropdown box in home page
 var setting_template = '       \
@@ -256,58 +246,7 @@ function markXy(obj, xy){
 }
 
 
-function parseTable(data, selector){
-    var table = genElement("table");
-    var thead = genElement("thead");
-    var tbody = genElement("tbody");
-    var tr = genElement("tr");
-    var th = genElement("th");
-    var td = genElement("td");
-
-    tr.appendChild(th);
-
-    var columns = [];
-    $.each(data, function(key, value){
-        var th = genElement("th");
-        var tmp = strFormat(th_template, "&nbsp " + key + "&nbsp ");
-        th.innerHTML = tmp;
-        tr.appendChild(th);
-        columns.push(key);
-    })
-    thead.appendChild(tr);
-
-    var indexes = [];
-
-    $.each(data[columns[0]], function(index, value){
-        indexes.push(index);
-    })
-
-    for (var row = 0; row < indexes.length; row++) {
-        var tr = genElement("tr");
-        var th = genElement("th");
-        th.innerText = indexes[row];
-        tr.appendChild(th);
-        $.each(columns, function(no_user, col){
-            var td = genElement("td");
-            td.innerText = data[col][indexes[row]];
-            tr.appendChild(td);
-        })
-        tbody.appendChild(tr);
-    };
-
-    table.setAttribute("id", "table_value");
-    table.setAttribute("border", "1px");
-    table.className = "table-condensed table-hover";
-    table.style.fontSize = "small";
-    table.style.fontWeight = "400";
-
-    var tableDOM = $(selector)[0]
-
-    // add table
-    table.appendChild(thead);
-    table.appendChild(tbody);
-    tableDOM.appendChild(table);
-}
+// parseTable() has been replaced by DashTable.renderTable() in dash.table.js
 
 
 function saveGraph(){

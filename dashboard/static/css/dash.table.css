@@ -1,0 +1,114 @@
+/**
+ * dash.table.css
+ * ==============
+ * Companion styles for the unified DashTable module (dash.table.js).
+ *
+ * Covers:
+ *   - State containers (loading / empty / error)
+ *   - Table base styles (migrated from inline JS)
+ *   - Cell states (null indicator, truncation)
+ *   - Column-count warning banner
+ */
+
+/* ── Table base ───────────────────────────────────────────────────── */
+
+.dash-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.dash-table th,
+.dash-table td {
+    white-space: nowrap;
+    padding: 3px 6px;
+    max-width: 400px;
+    overflow: hidden;
+}
+
+.dash-table thead th {
+    background-color: #f5f5f5;
+    border-bottom: 2px solid #ddd;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.dash-table tbody tr:hover {
+    background-color: #f9f9f9;
+}
+
+/* ── State containers ─────────────────────────────────────────────── */
+
+.dash-table-loading,
+.dash-table-empty,
+.dash-table-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    text-align: center;
+    color: #999;
+    font-size: 14px;
+}
+
+.dash-table-loading i {
+    color: #5bc0de;
+    margin-bottom: 12px;
+}
+
+.dash-table-loading p,
+.dash-table-empty p,
+.dash-table-error p {
+    margin-top: 8px;
+    margin-bottom: 0;
+}
+
+.dash-table-empty i {
+    color: #aaa;
+    margin-bottom: 12px;
+}
+
+.dash-table-error i {
+    color: #d9534f;
+    margin-bottom: 12px;
+}
+
+.dash-table-error p {
+    color: #a94442;
+}
+
+/* ── Cell states ──────────────────────────────────────────────────── */
+
+.dash-table-cell-null {
+    background-color: #fafafa;
+    color: #ccc;
+    font-style: italic;
+}
+
+.dash-table-cell-truncated {
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+    cursor: help;
+}
+
+/* ── Column-count warning ─────────────────────────────────────────── */
+
+.dash-table-columns-warning {
+    padding: 6px 12px;
+    margin-bottom: 8px;
+    background-color: #fcf8e3;
+    border: 1px solid #faebcc;
+    border-radius: 3px;
+    color: #8a6d3b;
+    font-size: 13px;
+}
+
+/* ── Column name in plain header ──────────────────────────────────── */
+
+.dash-table-col-name {
+    font-weight: 600;
+    font-size: 12px;
+    color: #333;
+}
