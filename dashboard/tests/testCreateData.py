@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
 
 # built-in package
 import os
-import time
-import json
-import random
 
 # third-party package
 import MySQLdb
@@ -14,7 +12,7 @@ import pandas as pd
 from .. import r_kv, r_db, config
 from dashboard.server import utils
 from dashboard.client import sender
-from dashboard.server.resources import home
+from dashboard.server.store import DashboardStore
 
 
 TMP_DIR = '/mnt/tmp'
@@ -121,8 +119,8 @@ def test_create_mysql_data():
 
 @utils.print_func_name
 def test_create_dash():
-    home_resource = home.Home()
+    store = DashboardStore()
     authors = ['sam', 'aaron', 'bee', 'will', 'ryan', 'mike', 'kevin', 'elvis', 'tiyu', 'sophia']
     name_prefix = 'dashboard name {}'
     for i in range(len(authors)):
-        home_resource._create_dash(name_prefix.format(i), authors[i])
+        store.create(name_prefix.format(i), authors[i])
