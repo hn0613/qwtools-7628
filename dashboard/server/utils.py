@@ -117,6 +117,11 @@ class SQL(object):
     """docstring for SQL"""
     def __init__(self, host, port, user, passwd, db):
         super(SQL, self).__init__()
+        self.host = host
+        self.port = port
+        self.user = user
+        self.passwd = passwd
+        self.db = db
         self.conn = MySQLdb.connect(host=host, port=port, user=user, passwd=passwd,
                                     db=db)
 
@@ -124,21 +129,26 @@ class SQL(object):
         try:
             self.conn.stat()
         except:
-            self.conn = MySQLdb.connect(host=host, port=port, user=user, passwd=passwd,
-                                        db=db)
-
+            self.conn = MySQLdb.connect(host=self.host, port=self.port,
+                                        user=self.user, passwd=self.passwd,
+                                        db=self.db)
         return self.conn
 
     def run(self, sql):
         self.get_conn()
         cursor = self.conn.cursor()
-        cursor.execute(sql)
-        result = cursor.fetchall()
-        cursor.close()
-
-        if cursor.description:
-            columns = [i[0] for i in cursor.description]
-            frame = pd.DataFrame.from_records(list(result), columns=columns)
-            return frame.to_dict()
-
-        return None
+        try:
+            cursor.execute(sql)
+            if cursor.description:
+                columns = [i[0] for i in cursor.description]
+                result = cursor.fetchall()
+                frame = pd.DataFrame.from_records(list(result), columns=columns)
+                return {'success': True, 'type': 'select', 'data': frame.to_dict()}
+            else:
+                self.conn.commit()
+                return {'success': True, 'type': 'execute', 'rowcount': cursor.rowcount}
+        except Exception as e:
+            self.conn.rollback()
+            return {'success': False, 'error': str(e)}
+        finally:
+            cursor.close()

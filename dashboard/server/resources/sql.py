@@ -8,9 +8,6 @@ import hashlib
 
 # third-party package
 import sqlparse
-from pygments import highlight
-from pygments.lexers import SqlLexer
-from pygments.formatters import HtmlFormatter
 from flask.ext.restful import Resource
 from flask import request, make_response, render_template, redirect
 
@@ -42,40 +39,54 @@ class SqlData(Resource):
 
         post data format:
 
-            {"options": ['all', 'last', 'first', 'format'], "sql_raw": "raw sql ..."}
+            {"options": ['all', 'selected', 'first', 'last', 'format'], "sql_raw": "raw sql ..."}
 
         Returns:
             sql result.
         '''
-        ## format sql
-
         data = request.get_json()
         options, sql_raw = data.get('options'), data.get('sql_raw')
 
+        # --- format mode (no execution) ---
         if options == 'format':
-            sql_formmated = sqlparse.format(sql_raw, keyword_case='upper', reindent=True)
-            return build_response(dict(data=sql_formmated, code=200))
+            if not sql_raw or not sql_raw.strip():
+                return build_response(dict(data='', code=200))
+            sql_formatted = sqlparse.format(sql_raw, keyword_case='upper', reindent=True)
+            return build_response(dict(data=sql_formatted, code=200))
 
-        elif options in ('all', 'selected'):
+        # --- validate non-empty SQL for execution modes ---
+        if not sql_raw or not sql_raw.strip():
+            return build_response(dict(data=None, error='SQL is empty.', code=400))
+
+        # --- determine which SQL to execute ---
+        if options in ('all', 'selected'):
+            sql_to_run = sql_raw
+        elif options == 'first':
+            statements = [s.strip() for s in sqlparse.split(sql_raw) if s.strip()]
+            if not statements:
+                return build_response(dict(data=None, error='No valid SQL statement found.', code=400))
+            sql_to_run = statements[0]
+        elif options == 'last':
+            statements = [s.strip() for s in sqlparse.split(sql_raw) if s.strip()]
+            if not statements:
+                return build_response(dict(data=None, error='No valid SQL statement found.', code=400))
+            sql_to_run = statements[-1]
+        else:
+            return build_response(dict(data=None, error='Unknown option: {}'.format(options), code=400))
+
+        # --- execute ---
+        try:
             conn = SQL(config.sql_host, config.sql_port, config.sql_user,
                        config.sql_pwd, config.sql_db)
+            result = conn.run(sql_to_run)
+        except Exception as e:
+            return build_response(dict(data=None, error='Database connection error: {}'.format(str(e)), code=500))
 
-            result = conn.run(sql_raw)
-            return build_response(dict(data=result, code=200))
+        if not result.get('success'):
+            return build_response(dict(data=None, error=result.get('error', 'Unknown error'), code=500))
+
+        if result['type'] == 'select':
+            return build_response(dict(data=result['data'], code=200))
         else:
-
-            pass
-
-
-
-
-
-
-
-        pass
-
-
-
-
-
-##
+            msg = '{} row(s) affected.'.format(result.get('rowcount', 0))
+            return build_response(dict(data=None, message=msg, code=200))

@@ -228,6 +228,7 @@ related questions: http://stackoverflow.com/questions/23333231/bootstrap-button-
     padding-top: 5px;
     border: none;
     /*display: none;*/
+    display: none;
     color: white;
     background-color: inherit;
 }

@@ -1,12 +1,25 @@
 
 
-
 function runSql(options) {
     console.log("###Run sql options: " + options);
-    var sql_raw = (options=="selected" ? editor.getSelectedText() : editor.getValue()) ;
+    var sql_raw;
+
+    if (options == "selected") {
+        sql_raw = editor.getSelectedText();
+        if (!sql_raw || !sql_raw.trim()) {
+            my_alert("No text selected. Please select SQL to execute.", true);
+            return;
+        }
+    } else {
+        sql_raw = editor.getValue();
+        if (options != "format" && (!sql_raw || !sql_raw.trim())) {
+            my_alert("SQL editor is empty.", true);
+            return;
+        }
+    }
+
     sqlAjax(options, sql_raw);
     console.log("###Run sql : " + sql_raw);
-
 }
 
 function sqlAjax(options, sql_raw){
@@ -20,28 +33,58 @@ function sqlAjax(options, sql_raw){
         method: method,
         contentType: "application/json"
     })
-    .done(function(){console.log("ajax done")})
-    .fail(function(){console.log("ajax fail")})
-    .success(function(data){
-        console.log("ajax success");
+    .done(function(data){
+        console.log("ajax done");
         console.log(data);
-        parseSQL(options, data);
+        if (data.error) {
+            my_alert("SQL Error: " + data.error, true);
+        } else {
+            parseSQL(options, data);
+        }
     })
-    .complete(function(){console.log("ajax complete")})
-    .always(function(){console.log("ajax always")})
-    ;
+    .fail(function(jqXHR, textStatus, errorThrown){
+        console.log("ajax fail: " + textStatus);
+        var errorMsg = "Request failed";
+        if (jqXHR.responseJSON && jqXHR.responseJSON.error) {
+            errorMsg = jqXHR.responseJSON.error;
+        } else if (errorThrown) {
+            errorMsg = errorThrown;
+        }
+        my_alert("Error: " + errorMsg, true);
+    });
 }
 
 function parseSQL(options, data){
     if (options == 'format') {
         editor.setValue(data.data, 1);
-    }else{
+    } else if (data.data === null || data.data === undefined) {
+        // Non-SELECT result (INSERT/UPDATE/DELETE/DDL)
+        clearTable("#value");
+        var msg = data.message || "Query executed successfully.";
+        my_alert(msg, false);
+    } else if ($.isEmptyObject(data.data)) {
+        // SELECT returned zero rows
+        clearTable("#value");
+        my_alert("Query returned 0 rows.", false);
+    } else {
         parseTable_v2(data.data, "#value");
     }
 }
 
+function clearTable(selector){
+    var container = $(selector)[0];
+    while (container.firstChild) {
+        container.removeChild(container.firstChild);
+    }
+}
+
 function parseTable_v2(data, selector){
-    $.each($(selector)[0].children, function(index, obj){$(selector)[0].removeChild(obj)})
+    clearTable(selector);
+
+    if (!data || typeof data !== 'object') {
+        my_alert("No data to display.", false);
+        return;
+    }
 
     var table = genElement("table");
     var thead = genElement("thead");

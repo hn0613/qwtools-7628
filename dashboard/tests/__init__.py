@@ -1,1 +1,1 @@
-__all__ = ['testCreateData', 'testUtils']
+__all__ = ['testCreateData', 'testUtils', 'testSqlExecution']

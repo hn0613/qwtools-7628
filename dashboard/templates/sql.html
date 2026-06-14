@@ -6,11 +6,11 @@
         <!-- sql editor -->
         <div>
             <div class="btn-group" id="graph-type">
-                <button type="button" class="btn btn-default btn-sm btn-chart" onclick="runSql('all')"><i class="fa fa-fw fa-lg fa-sort-amount-asc"></i>run all</button>
-                <button type="button" class="btn btn-default btn-sm btn-chart" onclick="runSql('selected')"><i class="fa fa-fw fa-lg fa-shield"></i>run selected</button>
-                <button type="button" class="btn btn-default btn-sm btn-chart" onclick="runSql('first')"><i class="fa fa-fw fa-lg fa-level-up"></i>run first</button>
-                <button type="button" class="btn btn-default btn-sm btn-chart" onclick="runSql('last')"><i class="fa fa-fw fa-lg fa-level-down"></i>run last</button>
-                <button type="button" class="btn btn-default btn-sm btn-chart" onclick="runSql('format')"><i class="fa fa-fw fa-lg fa-outdent"></i> format</button>
+                <button type="button" class="btn btn-default btn-sm btn-chart" onclick="runSql('all')" title="Execute all SQL in the editor"><i class="fa fa-fw fa-lg fa-sort-amount-asc"></i>run all</button>
+                <button type="button" class="btn btn-default btn-sm btn-chart" onclick="runSql('selected')" title="Execute only the selected text"><i class="fa fa-fw fa-lg fa-shield"></i>run selected</button>
+                <button type="button" class="btn btn-default btn-sm btn-chart" onclick="runSql('first')" title="Execute only the first SQL statement"><i class="fa fa-fw fa-lg fa-level-up"></i>run first</button>
+                <button type="button" class="btn btn-default btn-sm btn-chart" onclick="runSql('last')" title="Execute only the last SQL statement"><i class="fa fa-fw fa-lg fa-level-down"></i>run last</button>
+                <button type="button" class="btn btn-default btn-sm btn-chart" onclick="runSql('format')" title="Format/beautify the SQL"><i class="fa fa-fw fa-lg fa-outdent"></i> format</button>
             </div>
             <div style="width: 100%; height: 300px">
                 <div class="editor" type=textarea>
@@ -63,7 +63,7 @@
 
 {% block script %}
 
-<script type"text/javascript">
+<script type="text/javascript">
     store.set("api_root", "http://" + $("meta[name=api_root]")[0].attributes.value.value + "/");
     api_root = store.get("api_root");
 </script>
