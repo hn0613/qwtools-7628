@@ -14,6 +14,11 @@ function sqlAjax(options, sql_raw){
     var url = api_root + "data/sql/";
     var method = "POST";
 
+    // Show loading state for query execution
+    if (options !== 'format') {
+        DashTable.showLoading("#value");
+    }
+
     $.ajax({
         url: url,
         data: postData,
@@ -21,7 +26,13 @@ function sqlAjax(options, sql_raw){
         contentType: "application/json"
     })
     .done(function(){console.log("ajax done")})
-    .fail(function(){console.log("ajax fail")})
+    .fail(function(jqXHR, textStatus, errorThrown){
+        console.log("ajax fail: " + textStatus);
+        if (options !== 'format') {
+            DashTable.showError("#value", "SQL query failed: " + (errorThrown || textStatus));
+        }
+        my_alert("SQL query failed: " + (errorThrown || textStatus), true);
+    })
     .success(function(data){
         console.log("ajax success");
         console.log(data);
@@ -35,62 +46,7 @@ function sqlAjax(options, sql_raw){
 function parseSQL(options, data){
     if (options == 'format') {
         editor.setValue(data.data, 1);
-    }else{
-        parseTable_v2(data.data, "#value");
+    } else {
+        DashTable.render(data.data, "#value", { headerMode: "readonly" });
     }
-}
-
-function parseTable_v2(data, selector){
-    $.each($(selector)[0].children, function(index, obj){$(selector)[0].removeChild(obj)})
-
-    var table = genElement("table");
-    var thead = genElement("thead");
-    var tbody = genElement("tbody");
-    var tr = genElement("tr");
-    var th = genElement("th");
-    var td = genElement("td");
-
-    tr.appendChild(th);
-
-    var columns = [];
-    $.each(data, function(key, value){
-        var th = genElement("th");
-        var tmp = strFormat(th_template, "&nbsp " + key + "&nbsp ");
-        th.innerHTML = tmp;
-        tr.appendChild(th);
-        columns.push(key);
-    })
-    thead.appendChild(tr);
-
-    var indexes = [];
-
-    $.each(data[columns[0]], function(index, value){
-        indexes.push(index);
-    })
-
-    for (var row = 0; row < indexes.length; row++) {
-        var tr = genElement("tr");
-        var th = genElement("th");
-        th.innerText = indexes[row];
-        tr.appendChild(th);
-        $.each(columns, function(no_user, col){
-            var td = genElement("td");
-            td.innerText = data[col][indexes[row]];
-            tr.appendChild(td);
-        })
-        tbody.appendChild(tr);
-    };
-
-    table.setAttribute("id", "table_value");
-    table.setAttribute("border", "1px");
-    table.className = "table-condensed table-hover";
-    table.style.fontSize = "small";
-    table.style.fontWeight = "400";
-
-    var tableDOM = $(selector)[0]
-
-    // add table
-    table.appendChild(thead);
-    table.appendChild(tbody);
-    tableDOM.appendChild(table);
 }

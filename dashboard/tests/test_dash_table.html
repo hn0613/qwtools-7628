@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>DashTable Module Tests</title>
+    <meta charset="UTF-8">
+    <script src="../static/js/jquery-2.1.4.min.js"></script>
+    <script src="../static/js/bootstrap-3.3.5.min.js"></script>
+    <script src="../static/js/dash.js"></script>
+    <script src="../static/js/dash.table.js"></script>
+    <link rel="stylesheet" href="../static/css/bootstrap-3.3.5.min.css">
+    <link rel="stylesheet" href="../static/css/font-awesome-4.4.0.min.css">
+    <link rel="stylesheet" href="../static/css/dash.css">
+    <style>
+        body { padding: 20px 40px; font-family: 'Helvetica Neue', Arial, sans-serif; }
+        .test-container { border: 1px solid #ddd; margin: 10px 0; min-height: 60px; padding: 0; }
+        .test-section { margin-bottom: 30px; }
+        .test-section h3 { border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        .pass { color: #5cb85c; }
+        .fail { color: #d9534f; }
+        #log { background: #f8f8f8; padding: 15px; border-radius: 3px; font-family: monospace; font-size: 13px; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h1>DashTable Module Tests</h1>
+
+    <h2>Unit Tests</h2>
+    <div id="log"></div>
+
+    <h2>Visual Tests</h2>
+
+    <div class="test-section">
+        <h3>1. Readonly table (SQL results style)</h3>
+        <div id="test-readonly" class="test-container"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. Interactive table (Dashboard modal style, with X/Y axis dropdowns)</h3>
+        <div id="test-interactive" class="test-container"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>3. Loading state</h3>
+        <div id="test-loading" class="test-container"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>4. Error state</h3>
+        <div id="test-error" class="test-container"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>5. Empty state (null data)</h3>
+        <div id="test-empty-null" class="test-container"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>6. Empty state (no rows)</h3>
+        <div id="test-empty-norows" class="test-container"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>7. Table with missing cell values</h3>
+        <div id="test-missing" class="test-container"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>8. Clear then re-render (no duplicate content)</h3>
+        <div id="test-rerender" class="test-container"></div>
+    </div>
+
+    <script>
+    // --- Test utilities ---
+    var passed = 0, failed = 0;
+    function assert(condition, message) {
+        if (condition) {
+            passed++;
+            log("PASS: " + message, "pass");
+        } else {
+            failed++;
+            log("FAIL: " + message, "fail");
+        }
+    }
+    function log(msg, cls) {
+        var el = document.getElementById("log");
+        var span = document.createElement("span");
+        span.className = cls || "";
+        span.textContent = msg + "\n";
+        el.appendChild(span);
+    }
+
+    // --- Test data ---
+    var sampleData = {
+        "name":  {"0": "Alice", "1": "Bob",  "2": "Charlie"},
+        "age":   {"0": 30,      "1": 25,     "2": 35},
+        "score": {"0": 95.5,    "1": 88.0,   "2": 72.3}
+    };
+
+    var dataWithMissing = {
+        "col_a": {"0": "x", "1": "y",     "2": "z"},
+        "col_b": {"0": 1,   "1": undefined,"2": null}
+    };
+
+    var emptyColData = {"col_a": {}};
+
+    // --- Unit tests ---
+    log("=== DashTable API existence ===");
+    assert(typeof DashTable === "object",             "DashTable is defined");
+    assert(typeof DashTable.render === "function",    "DashTable.render is a function");
+    assert(typeof DashTable.clear === "function",     "DashTable.clear is a function");
+    assert(typeof DashTable.validate === "function",  "DashTable.validate is a function");
+    assert(typeof DashTable.showLoading === "function","DashTable.showLoading is a function");
+    assert(typeof DashTable.showError === "function", "DashTable.showError is a function");
+    assert(typeof DashTable.showEmpty === "function", "DashTable.showEmpty is a function");
+
+    log("\n=== validate() ===");
+    assert(DashTable.validate(null).valid === false,      "null is invalid");
+    assert(DashTable.validate(undefined).valid === false,  "undefined is invalid");
+    assert(DashTable.validate("string").valid === false,   "string is invalid");
+    assert(DashTable.validate([1,2,3]).valid === false,     "array is invalid");
+    assert(DashTable.validate({}).valid === false,          "empty object is invalid");
+    assert(DashTable.validate(emptyColData).valid === false,"column with no rows is invalid");
+    assert(DashTable.validate(sampleData).valid === true,   "valid data passes");
+
+    log("\n=== render() with valid data ===");
+    var table = DashTable.render(sampleData, "#test-readonly", { headerMode: "readonly" });
+    assert(table !== null,                                "render returns table element");
+    assert(table.tagName === "TABLE",                     "returned element is a <table>");
+    assert(table.querySelector("thead") !== null,         "table has <thead>");
+    assert(table.querySelector("tbody") !== null,         "table has <tbody>");
+    var headerCells = table.querySelectorAll("thead th");
+    assert(headerCells.length === 4,                      "4 header cells (1 index + 3 columns)");
+    var bodyRows = table.querySelectorAll("tbody tr");
+    assert(bodyRows.length === 3,                         "3 body rows");
+
+    log("\n=== render() with invalid data ===");
+    var result = DashTable.render(null, "#test-empty-null");
+    assert(result === null,                               "render returns null for invalid data");
+    var emptyState = document.querySelector("#test-empty-null .dash-table-state");
+    assert(emptyState !== null,                           "empty state element is rendered");
+
+    log("\n=== render() with no-rows data ===");
+    DashTable.render(emptyColData, "#test-empty-norows");
+    var emptyState2 = document.querySelector("#test-empty-norows .dash-table-state");
+    assert(emptyState2 !== null,                          "empty state shown for no-rows data");
+
+    log("\n=== clear() ===");
+    var testDiv = document.createElement("div");
+    testDiv.id = "test-clear-target";
+    testDiv.innerHTML = "<p>child1</p><p>child2</p><p>child3</p>";
+    document.body.appendChild(testDiv);
+    DashTable.clear("#test-clear-target");
+    assert(testDiv.children.length === 0,                 "clear removes all children");
+    document.body.removeChild(testDiv);
+
+    log("\n=== Interactive header mode ===");
+    var axisEvents = [];
+    DashTable.render(sampleData, "#test-interactive", {
+        headerMode: "interactive",
+        onAxisSelect: function(colName, axisType, isChecked) {
+            axisEvents.push({col: colName, axis: axisType, checked: isChecked});
+        }
+    });
+    var dropdowns = document.querySelectorAll("#test-interactive .btn-group");
+    assert(dropdowns.length === 3,                        "3 dropdown button groups (one per column)");
+    var checkboxes = document.querySelectorAll("#test-interactive input[type=checkbox]");
+    assert(checkboxes.length === 6,                       "6 checkboxes (2 per column)");
+
+    log("\n=== Missing cell values ===");
+    DashTable.render(dataWithMissing, "#test-missing", { headerMode: "readonly" });
+    var cells = document.querySelectorAll("#test-missing tbody td");
+    var hasEmpty = false;
+    for (var i = 0; i < cells.length; i++) {
+        if (cells[i].innerText === "") hasEmpty = true;
+    }
+    assert(hasEmpty,                                      "missing values render as empty string");
+
+    log("\n=== Re-render replaces content ===");
+    DashTable.render(sampleData, "#test-rerender", { headerMode: "readonly" });
+    DashTable.render(sampleData, "#test-rerender", { headerMode: "readonly" });
+    var tables = document.querySelectorAll("#test-rerender table");
+    assert(tables.length === 1,                           "re-render produces exactly 1 table (no duplicates)");
+
+    // --- Visual tests ---
+    DashTable.showLoading("#test-loading");
+    DashTable.showError("#test-error", "Connection timeout: could not reach database server.");
+
+    // --- Summary ---
+    log("\n=== Summary ===");
+    log("Passed: " + passed + ", Failed: " + failed, failed > 0 ? "fail" : "pass");
+    document.title = (failed > 0 ? "FAIL" : "PASS") + " - DashTable Tests (" + passed + "/" + (passed + failed) + ")";
+    </script>
+</body>
+</html>

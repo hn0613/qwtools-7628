@@ -163,6 +163,9 @@ function createGrids(){
                 console.log($(strFormat("div [graph-id={0}] .chart-graph", index)));
                 initChart(current_dash.grid[index].type, index)
                 console.log($.parseJSON(data.data));
+            }).fail(function(){
+                var sel = strFormat("div.chart-graph[graph_id='{0}']", index);
+                DashTable.showError(sel, "Failed to load data for this graph.");
             })
             // $.ajax({
             //     url: api_root + "key/" + key,
@@ -209,6 +212,7 @@ function getValue(){
         // var url = "http://127.0.0.1:9090/key/" + key;
         var url = api_root + "key/" + key;
 
+        DashTable.showLoading("#value");
         $.getJSON(url, function(data){
             var jsonData = $.parseJSON(data.data);
             store.set(key, jsonData);
@@ -216,6 +220,9 @@ function getValue(){
             modal.type = "table";      // default graph type
             store.set("modal", modal);
             drawChartIntoModal("table");
+        }).fail(function(jqXHR, textStatus, errorThrown){
+            DashTable.showError("#value", "Failed to load data: " + (errorThrown || textStatus));
+            my_alert("Failed to load data", true);
         })
 
         // change the btn-chart, table button default as clicked
@@ -256,57 +263,16 @@ function markXy(obj, xy){
 }
 
 
-function parseTable(data, selector){
-    var table = genElement("table");
-    var thead = genElement("thead");
-    var tbody = genElement("tbody");
-    var tr = genElement("tr");
-    var th = genElement("th");
-    var td = genElement("td");
-
-    tr.appendChild(th);
-
-    var columns = [];
-    $.each(data, function(key, value){
-        var th = genElement("th");
-        var tmp = strFormat(th_template, "&nbsp " + key + "&nbsp ");
-        th.innerHTML = tmp;
-        tr.appendChild(th);
-        columns.push(key);
-    })
-    thead.appendChild(tr);
-
-    var indexes = [];
-
-    $.each(data[columns[0]], function(index, value){
-        indexes.push(index);
-    })
-
-    for (var row = 0; row < indexes.length; row++) {
-        var tr = genElement("tr");
-        var th = genElement("th");
-        th.innerText = indexes[row];
-        tr.appendChild(th);
-        $.each(columns, function(no_user, col){
-            var td = genElement("td");
-            td.innerText = data[col][indexes[row]];
-            tr.appendChild(td);
-        })
-        tbody.appendChild(tr);
-    };
-
-    table.setAttribute("id", "table_value");
-    table.setAttribute("border", "1px");
-    table.className = "table-condensed table-hover";
-    table.style.fontSize = "small";
-    table.style.fontWeight = "400";
-
-    var tableDOM = $(selector)[0]
-
-    // add table
-    table.appendChild(thead);
-    table.appendChild(tbody);
-    tableDOM.appendChild(table);
+function markXy_byName(colName, axisType, isChecked) {
+    var modalData = store.get("modal");
+    if (!modalData) return;
+    var key = axisType ? "x" : "y";
+    if (isChecked) {
+        modalData.option[key].push(colName);
+    } else {
+        modalData.option[key] = $.grep(modalData.option[key], function(v){ return v !== colName; });
+    }
+    store.set("modal", modalData);
 }
 
 

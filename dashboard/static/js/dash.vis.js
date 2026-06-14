@@ -141,19 +141,19 @@ function drawChartIntoGrid(type, graph_id){
     var modalData = store.get("modal");
     var key = modalData.key;
     var data = store.get(key);
-    //
+
+    // clear content before creating new content
+    DashTable.clear(selector);
+
     if (type == 'table') {
-        parseTable(data, selector);
+        DashTable.render(data, selector, {
+            headerMode: "interactive",
+            onAxisSelect: function(colName, axisType, isChecked) {
+                markXy_byName(colName, axisType, isChecked);
+            }
+        });
         return true;
-    };
-
-    // check data avilablity
-    // use different js lib to do the drawing, nvd3, c3, d3, leafletjs
-    // currently, I just use nvd3 to fullfill the basic graph.
-    // var chart = getChart(type);
-
-    // clear content if exissted for creating new content
-    $.each($(selector)[0].children, function(index, obj){$(selector)[0].removeChild(obj)})
+    }
 
     // get data which need draw, axes defined in data-0.1.0.js as xyAxes
     var xColumn = data[ modalData.option.x[0] ];
@@ -193,19 +193,14 @@ function initChart(type, graph_id){
     var current_graph = current_dash.grid[graph_id];
     var key = current_graph.key;
     var data = store.get(key);
-    //
+
+    // clear content before creating new content
+    DashTable.clear(selector);
+
     if (type == 'table') {
-        parseTable(data, selector);
+        DashTable.render(data, selector, { headerMode: "readonly" });
         return true;
-    };
-
-    // check data avilablity
-    // use different js lib to do the drawing, nvd3, c3, d3, leafletjs
-    // currently, I just use nvd3 to fullfill the basic graph.
-    // var chart = getChart(type);
-
-    // clear content if exissted for creating new content
-    $.each($(selector)[0].children, function(index, obj){$(selector)[0].removeChild(obj)})
+    }
 
     // get data which need draw, axes defined in data-0.1.0.js as xyAxes
     var xColumn = data[ current_graph.option.x[0] ];
@@ -242,13 +237,18 @@ function drawChartIntoModal(type){
     var key = modalData.key;
     var data = store.get(key);
 
-    // clear content if exissted for creating new content
-    $.each($("#value")[0].children, function(index, obj){$("#value")[0].removeChild(obj)})
+    // clear content before creating new content
+    DashTable.clear("#value");
 
     if (type == 'table') {
-        parseTable(data, "#value");
+        DashTable.render(data, "#value", {
+            headerMode: "interactive",
+            onAxisSelect: function(colName, axisType, isChecked) {
+                markXy_byName(colName, axisType, isChecked);
+            }
+        });
         return true;
-    };
+    }
 
     var xColumn = data[ modalData.option.x[0] ];
     var chart = getChart(type);

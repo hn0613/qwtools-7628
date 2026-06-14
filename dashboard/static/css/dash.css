@@ -247,3 +247,39 @@ related questions: http://stackoverflow.com/questions/23333231/bootstrap-button-
     width: inherit;
     height: inherit;
 }
+
+/* --- DashTable state indicators --- */
+
+.dash-table-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 120px;
+    padding: 40px 20px;
+    color: #888;
+    font-size: 14px;
+    text-align: center;
+}
+
+.dash-table-state i {
+    margin-bottom: 12px;
+    color: inherit;
+}
+
+.dash-table-state p {
+    margin: 0;
+    font-weight: 400;
+}
+
+.dash-table-loading {
+    color: #777;
+}
+
+.dash-table-error {
+    color: #c9302c;
+}
+
+.dash-table-empty {
+    color: #999;
+}
