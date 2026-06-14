@@ -217,6 +217,38 @@ taotao@mac007:~/Desktop/github/IPython-Dashboard$
 
 # [Change Log](./CHANGES.md)
 
+- ***Dashboard Copy (Duplicate) Feature***
+
+    Use case: You have a dashboard that works well as a stable baseline and want to iterate on a new version without risking the original.
+
+    **How to copy:**
+    - **From the home page list:** Click the gear icon on a dashboard row, then click "Copy". A new dashboard named `{original name} (副本)` will appear in the list.
+    - **From the dashboard detail page:** Click "Save as Copy" in the toolbar. The current dashboard state is saved and a copy is created, then you are redirected to the new copy.
+
+    **What is inherited (copied):**
+    - Layout (grid positions and sizes of all widgets)
+    - Chart titles (graph_name)
+    - Data source references (key names)
+    - Chart types (bar, line, pie, area, table)
+    - Axis configuration (x/y column selections)
+    - Author name
+
+    **What is NOT inherited:**
+    - The actual data stored in the KV store is not duplicated — both dashboards reference the same data keys. If a data key is later removed, the affected widgets in either dashboard will show a "Data source not found" notice.
+    - The `time_modified` is set to the copy creation time.
+    - The dashboard ID is new and independent.
+
+    **Independence guarantee:**
+    - After copying, edits to either the original or the copy are fully independent. Saving one never modifies the other.
+    - Deleting the original does not affect the copy (and vice versa).
+
+    **Error handling:**
+    - If the source dashboard contains widgets referencing data keys that no longer exist in the KV store, those widgets are automatically reset to empty (`key: "none"`, `type: "none"`) during the copy process. The rest of the dashboard is copied normally.
+    - If a widget is missing required fields (option, type), safe defaults are filled in.
+
+    **List identification:**
+    - Copied dashboards show a blue "副本" badge next to their name in the home page list, making it easy to distinguish copies from originals.
+
 - future
     + front side, databricks style
     + pep 8, code clean up & restructure

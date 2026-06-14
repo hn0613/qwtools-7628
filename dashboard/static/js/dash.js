@@ -62,9 +62,9 @@ var setting_template = '       \
   <li class="dropdown">        \
     <a href="#" class="dropdown-toggle" data-toggle="dropdown" style="padding: 2px 2px;"><span class="fa fa-fw fa-lg fa-cog" style="color: green"></span></a>  \
     <ul class="dropdown-menu" style="min-width: 20px;">                              \
-      <li ><a><span class="fa fa-fw fa-sm fa-group"></span></a></li>        \
+      <li onclick=copyDash({0})><a href="#"><span class="fa fa-fw fa-sm fa-copy"></span> Copy</a></li>        \
       <li class="divider" style="margin: auto;"></li>                                \
-      <li onclick=deleteDash({0})><a href="#"><span class="fa fa-fw fa-sm fa-times-circle"></span></a></li> \
+      <li onclick=deleteDash({0})><a href="#"><span class="fa fa-fw fa-sm fa-times-circle"></span> Delete</a></li> \
     </ul>  \
   </li>    \
 </ul>'
@@ -159,23 +159,23 @@ function createGrids(){
             console.log("no key exist");
         }else{
             $.getJSON(api_root + "key/" + key, function(data){
-                store.set(key, $.parseJSON(data.data));
-                console.log($(strFormat("div [graph-id={0}] .chart-graph", index)));
-                initChart(current_dash.grid[index].type, index)
-                console.log($.parseJSON(data.data));
+                if (data && data.data) {
+                    store.set(key, $.parseJSON(data.data));
+                    console.log($(strFormat("div [graph-id={0}] .chart-graph", index)));
+                    initChart(current_dash.grid[index].type, index)
+                    console.log($.parseJSON(data.data));
+                } else {
+                    // Data source returned empty or invalid — show notice
+                    var selector = strFormat("div.chart-graph[graph_id='{0}']", index);
+                    $(selector).html('<p style="color:#999; text-align:center; padding-top:20px;">Data unavailable</p>');
+                }
             })
-            // $.ajax({
-            //     url: api_root + "key/" + key,
-            //     method: "GET",
-            //     dataType: "JSONP",
-            //     contentType: "application/json",
-            //     async: false,
-            // })
-            // .success(function(data){
-            //     store.set(key, $.parseJSON(data.data));
-            //     initChart(current_dash.grid[index].type, index)
-            //     console.log($.parseJSON(data.data));
-            // })
+            .fail(function(){
+                // Data source missing or unreachable — show notice, don't crash
+                console.log("Failed to load data for key: " + key);
+                var selector = strFormat("div.chart-graph[graph_id='{0}']", index);
+                $(selector).html('<p style="color:#999; text-align:center; padding-top:20px;">Data source "' + key + '" not found</p>');
+            })
         }
     })
 
@@ -379,6 +379,68 @@ function saveDash(){
 }
 
 
+function saveAsCopy(){
+    // First, collect current dashboard data (same logic as saveDash)
+    var dash = store.get(store.get("current-dash"));
+
+    // dash name — use current name as-is for the copy
+    var dashName = $("#dashboard_name")[0].value;
+    if (100 < dashName.length || dashName.length < 4) {
+        alert("dashboard name not valid, digits should between 4 and 100, thanks.")
+        return null;
+    }
+    dash.name = dashName;
+
+    // collect grid data from visible widgets
+    var res = _.map($('.grid-stack .grid-stack-item:visible'), function (el) {
+        el = $(el);
+        var node = el.data('_gridstack_node');
+        var name = el.find("input.input-title-level-2")[0].value;
+        var key = dash.grid[el[0].getAttribute("graph-id")].key;
+        var type = dash.grid[el[0].getAttribute("graph-id")].type;
+        var option = dash.grid[el[0].getAttribute("graph-id")].option;
+        var grid = {
+            id: el.attr("graph-id"),
+            x: node.x,
+            y: node.y,
+            option: option,
+            width: node.width,
+            height: node.height,
+            key: (key) ? key : "none",
+            type: (type) ? type : "none",
+            graph_name: (name) ? name : "hi, give me a name ^_^",
+        };
+        dash.grid[el[0].getAttribute("graph-id")] = grid;
+        return grid;
+    });
+
+    store.set(store.get("current-dash"), dash);
+
+    // POST to copy API with the current dashboard's dash_id
+    var url = api_root + "data/dash/" + dash.id + "/copy";
+    $.ajax({
+        url: url,
+        method: "POST",
+        contentType: "application/json",
+    })
+    .done(function(){console.log("save-as-copy done")})
+    .fail(function(xhr){
+        console.log("save-as-copy fail");
+        var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : "Failed to save as copy";
+        my_alert(msg, true);
+    })
+    .success(function(data){
+        console.log("save-as-copy success", data);
+        if (data && data.data && data.data.id) {
+            // Redirect to the new copy's detail page
+            window.location.href = "/dash/" + data.data.id;
+        }
+    })
+    .complete(function(){console.log("save-as-copy complete")})
+    .always(function(){console.log("save-as-copy always")});
+}
+
+
 function getDash(dash_id){
     // var url = "http://127.0.0.1:9090/data/dash/" + dash_id;
     var url = api_root + "data/dash/" + dash_id;
@@ -442,6 +504,16 @@ function initDashList(){
         a.innerText = obj.name;
         a.setAttribute("href", url + obj.id);
         name.appendChild(a);
+        // Show "副本" badge if this dashboard was copied from another
+        if (obj.copied_from !== undefined && obj.copied_from !== null) {
+            var badge = document.createElement("span");
+            badge.className = "label label-info";
+            badge.style.marginLeft = "6px";
+            badge.style.fontSize = "10px";
+            badge.style.verticalAlign = "middle";
+            badge.innerText = "副本";
+            name.appendChild(badge);
+        }
         name.setAttribute("data-field", "name");
         author.innerText = obj.author;
         time.innerText = moment(parseInt(obj.time_modified) * 1000).format("YYYY-MM-DD HH:mm:ss");
@@ -509,6 +581,27 @@ function deleteDash(dash_id) {
     })
     .complete(function(){console.log("ajax complete")})
     .always(function(){console.log("ajax always")});
+}
+
+
+function copyDash(dash_id) {
+    $.ajax({
+        url: api_root + "data/dash/" + dash_id + "/copy",
+        method: "POST",
+        contentType: "application/json",
+    })
+    .done(function(data){console.log("copy done");})
+    .fail(function(xhr){
+        console.log("copy fail");
+        var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : "Failed to copy dashboard";
+        my_alert(msg, true);
+    })
+    .success(function(data){
+        console.log("copy success", data);
+        location.reload();
+    })
+    .complete(function(){console.log("copy complete")})
+    .always(function(){console.log("copy always")});
 }
 
 /*
