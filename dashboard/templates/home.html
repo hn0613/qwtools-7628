@@ -3,8 +3,16 @@
 
 {% block main_content %}
 <div id="main-content" class="htmleaf-container">
-    <div style="padding-left: 93%;">
-        <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#myModal"><i class="fa fa-fw fa-lg fa-plus"></i> Add</button>
+    <div style="padding-left: 10px; padding-right: 10px; display: flex; justify-content: space-between; align-items: center;">
+        <div class="btn-group" style="margin-bottom: 5px;">
+            <button type="button" class="btn btn-primary btn-sm" id="tab-active" onclick="switchDashView('active')">
+                <i class="fa fa-fw fa-tachometer"></i> Active
+            </button>
+            <button type="button" class="btn btn-default btn-sm" id="tab-archived" onclick="switchDashView('archived')">
+                <i class="fa fa-fw fa-archive"></i> Archived
+            </button>
+        </div>
+        <button type="button" class="btn btn-primary" id="btn-add-dash" data-toggle="modal" data-target="#myModal"><i class="fa fa-fw fa-lg fa-plus"></i> Add</button>
     </div>
 
     <div class="table-responsive">

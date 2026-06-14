@@ -4,6 +4,15 @@
 {% block main_content %}
 <div id="main-content" class="htmleaf-container">
 
+    <!-- Archived dashboard banner -->
+    <div id="archived-banner" class="alert alert-warning" style="display: none; margin-bottom: 10px;">
+        <i class="fa fa-archive"></i>
+        <strong>This dashboard is archived.</strong> It is read-only. Restore it to make edits.
+        <button type="button" class="btn btn-sm btn-success" id="archived-banner-restore" style="margin-left: 15px;">
+            <i class="fa fa-undo"></i> Restore
+        </button>
+    </div>
+
     <!-- dashboard name -->
     <header class="htmleaf-header" style="padding: 10px 20px;">
         <input id="dashboard_name" class="form-control input-lg input-title-level-1" maxlength="64" placeholder="Building and Sharing IPython Dashboard">

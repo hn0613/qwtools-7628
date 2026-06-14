@@ -64,7 +64,20 @@ var setting_template = '       \
     <ul class="dropdown-menu" style="min-width: 20px;">                              \
       <li ><a><span class="fa fa-fw fa-sm fa-group"></span></a></li>        \
       <li class="divider" style="margin: auto;"></li>                                \
-      <li onclick=deleteDash({0})><a href="#"><span class="fa fa-fw fa-sm fa-times-circle"></span></a></li> \
+      <li onclick=archiveDash({0})><a href="#"><span class="fa fa-fw fa-sm fa-archive" title="Archive"></span></a></li> \
+    </ul>  \
+  </li>    \
+</ul>'
+
+// setting dropdown box for archived dashboards
+var archived_setting_template = '       \
+<ul class="nav navbar-nav">    \
+  <li class="dropdown">        \
+    <a href="#" class="dropdown-toggle" data-toggle="dropdown" style="padding: 2px 2px;"><span class="fa fa-fw fa-lg fa-cog" style="color: #999"></span></a>  \
+    <ul class="dropdown-menu" style="min-width: 20px;">                              \
+      <li onclick=restoreDash({0})><a href="#"><span class="fa fa-fw fa-sm fa-undo" title="Restore"></span></a></li> \
+      <li class="divider" style="margin: auto;"></li>                                \
+      <li onclick=permanentDeleteDash({0})><a href="#"><span class="fa fa-fw fa-sm fa-times-circle" style="color:red;" title="Delete permanently"></span></a></li> \
     </ul>  \
   </li>    \
 </ul>'
@@ -133,7 +146,32 @@ function createGrids(){
 
     var grid = $('.grid-stack').data('gridstack');
     var dash_id = $("meta[name=dash_id]")[0].attributes.value.value;
-    var dash_content = getDash(dash_id);
+
+    // Fetch dashboard data and check archive status
+    var url = api_root + "data/dash/" + dash_id;
+    var resJson = $.ajax({
+        url: url,
+        method: "GET",
+        contentType: "application/json",
+        async: false,
+    });
+
+    var response = resJson.responseJSON;
+
+    if (response.code === 404) {
+        my_alert("Dashboard not found", true);
+        return;
+    }
+
+    // Show archived banner if dashboard is archived
+    if (response.archived) {
+        $("#archived-banner").show();
+        $("#archived-banner-restore").on("click", function(){
+            restoreDash(dash_id);
+        });
+    }
+
+    var dash_content = response.data;
     store.set(strFormat("dash-{0}", dash_id), dash_content);
     store.set("current-dash", strFormat("dash-{0}", dash_id));
 
@@ -164,18 +202,6 @@ function createGrids(){
                 initChart(current_dash.grid[index].type, index)
                 console.log($.parseJSON(data.data));
             })
-            // $.ajax({
-            //     url: api_root + "key/" + key,
-            //     method: "GET",
-            //     dataType: "JSONP",
-            //     contentType: "application/json",
-            //     async: false,
-            // })
-            // .success(function(data){
-            //     store.set(key, $.parseJSON(data.data));
-            //     initChart(current_dash.grid[index].type, index)
-            //     console.log($.parseJSON(data.data));
-            // })
         }
     })
 
@@ -428,6 +454,7 @@ function getDashList(){
 function initDashList(){
     var list = getDashList();
     var tbody = $("#dash_list")[0];
+    tbody.innerHTML = "";
     // var url = "http://127.0.0.1:9090/dash/";
     var url = api_root + "dash/";
 
@@ -495,20 +522,156 @@ function initDashList(){
 
 
 function deleteDash(dash_id) {
+    archiveDash(dash_id);
+}
+
+function archiveDash(dash_id) {
+    if (!confirm("Archive this dashboard? You can restore it later from the Archived view.")) {
+        return;
+    }
     $.ajax({
         url: api_root + "data/dash/" + dash_id,
-        // url: strFormat("http://127.0.0.1:9090/data/dash/{0}", dash_id),
         method: "DELETE",
         contentType: "application/json",
-        // async: false,
+    })
+    .success(function(data){
+        if (data.code === 200) {
+            my_alert("Dashboard archived successfully");
+            location.reload();
+        } else {
+            my_alert(data.message || "Archive failed", true);
+        }
+    })
+    .fail(function(){
+        my_alert("Failed to archive dashboard", true);
+    });
+}
+
+
+function restoreDash(dash_id) {
+    $.ajax({
+        url: api_root + "data/dash/" + dash_id + "/restore",
+        method: "POST",
+        contentType: "application/json",
+    })
+    .success(function(data){
+        if (data.code === 200) {
+            my_alert("Dashboard restored successfully");
+            location.reload();
+        } else if (data.code === 409) {
+            my_alert("Cannot restore: a dashboard with this ID already exists", true);
+        } else {
+            my_alert(data.message || "Restore failed", true);
+        }
+    })
+    .fail(function(){
+        my_alert("Failed to restore dashboard", true);
+    });
+}
+
+
+function permanentDeleteDash(dash_id) {
+    if (!confirm("Permanently delete this dashboard? This action CANNOT be undone.")) {
+        return;
+    }
+    $.ajax({
+        url: api_root + "data/dash/" + dash_id + "/permanent",
+        method: "DELETE",
+        contentType: "application/json",
+    })
+    .success(function(data){
+        if (data.code === 200) {
+            my_alert("Dashboard permanently deleted");
+            location.reload();
+        } else {
+            my_alert(data.message || "Delete failed", true);
+        }
+    })
+    .fail(function(){
+        my_alert("Failed to delete dashboard", true);
+    });
+}
+
+
+function getArchivedDashList(){
+    var url = api_root + "data/dashes/archived/";
+    var resJson = $.ajax({
+        url: url,
+        method: "GET",
+        contentType: "application/json",
+        async: false,
     })
     .done(function(data){console.log("ajax done");})
     .fail(function(){console.log("ajax fail")})
-    .success(function(){
-        location.reload();
+    .success(function(data){
+        console.log("ajax success");
+        return data;
     })
     .complete(function(){console.log("ajax complete")})
     .always(function(){console.log("ajax always")});
+
+    return resJson.responseJSON.data;
+}
+
+
+function initArchivedDashList(){
+    var list = getArchivedDashList();
+    var tbody = $("#dash_list")[0];
+    tbody.innerHTML = "";
+
+    if (list.length === 0) {
+        var tr = genElement("tr");
+        var td = genElement("td");
+        td.setAttribute("colspan", "4");
+        td.style.textAlign = "center";
+        td.style.color = "#999";
+        td.style.padding = "40px";
+        td.innerText = "No archived dashboards";
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        return;
+    }
+
+    var url = api_root + "dash/";
+    $.each(list, function(index, obj){
+        var a = genElement("a");
+        var tr = genElement("tr");
+        var name = genElement("td");
+        var author = genElement("td");
+        var time = genElement("td");
+        var action = genElement("td");
+        a.innerText = obj.name;
+        a.setAttribute("href", url + obj.id);
+        a.style.color = "#999";
+        name.appendChild(a);
+        name.setAttribute("data-field", "name");
+        author.innerText = obj.author;
+        time.innerText = moment(parseInt(obj.time_modified) * 1000).format("YYYY-MM-DD HH:mm:ss");
+        action.innerHTML = strFormat(archived_setting_template, obj.id);
+        tr.style.opacity = "0.7";
+        tr.appendChild(name);
+        tr.appendChild(author);
+        tr.appendChild(time);
+        tr.appendChild(action);
+        tbody.appendChild(tr);
+    });
+}
+
+
+function switchDashView(view) {
+    // Update tab button styles
+    $("#tab-active").removeClass("btn-primary").addClass("btn-default");
+    $("#tab-archived").removeClass("btn-primary").addClass("btn-default");
+
+    if (view === "archived") {
+        $("#tab-archived").removeClass("btn-default").addClass("btn-primary");
+        $("#btn-add-dash").hide();
+        initArchivedDashList();
+    } else {
+        $("#tab-active").removeClass("btn-default").addClass("btn-primary");
+        $("#btn-add-dash").show();
+        initDashList();
+    }
 }
 
 /*
