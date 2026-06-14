@@ -1,4 +1,27 @@
 
+- V 0.1.7 : archive-restore
+
+    - Dashboard
+        + archive (soft delete) dashboards - reversible, data stays in Redis
+        + restore archived dashboards - preserves all content and metadata
+        + hard delete (permanent) with confirmation dialog
+        + homepage tabs: Active / Archived views with badge counts
+        + detail page shows archived banner with restore button
+        + empty state messages for both tabs
+        + double-click protection for archive/restore/delete operations
+        + direct URL access to archived dashboards works with status banner
+        + backward compatible: existing data works without migration
+
+    - API
+        + POST /data/dash/<id>/archive - archive a dashboard
+        + PUT /data/dash/<id>/archive - restore a dashboard
+        + DELETE /data/dash/<id>/archive - hard delete permanently
+        + GET /data/dashes/?status=active|archived|all - filtered list with is_archived flag
+
+    - Documentation
+        + archive feature documentation (docs/archive-feature.md)
+        + integration tests for archive/restore/hard-delete flows
+
 - V 0.1.4 : sql-ui-optimize
 
     - Dashboard

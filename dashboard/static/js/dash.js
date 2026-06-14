@@ -56,18 +56,34 @@ var th_template = '                  \
   </ul>                              \
 </div>'
 
-// setting dropdown box in home page
-var setting_template = '       \
+// setting dropdown for ACTIVE dashboards (archive + hard delete)
+var active_setting_template = '       \
 <ul class="nav navbar-nav">    \
   <li class="dropdown">        \
     <a href="#" class="dropdown-toggle" data-toggle="dropdown" style="padding: 2px 2px;"><span class="fa fa-fw fa-lg fa-cog" style="color: green"></span></a>  \
-    <ul class="dropdown-menu" style="min-width: 20px;">                              \
-      <li ><a><span class="fa fa-fw fa-sm fa-group"></span></a></li>        \
+    <ul class="dropdown-menu" style="min-width: 120px;">                              \
+      <li onclick="archiveDash({0})"><a href="#"><span class="fa fa-fw fa-sm fa-archive action-archive"></span> Archive</a></li> \
       <li class="divider" style="margin: auto;"></li>                                \
-      <li onclick=deleteDash({0})><a href="#"><span class="fa fa-fw fa-sm fa-times-circle"></span></a></li> \
+      <li onclick="hardDeleteDash({0})"><a href="#"><span class="fa fa-fw fa-sm fa-times-circle action-delete"></span> Delete</a></li> \
     </ul>  \
   </li>    \
 </ul>'
+
+// setting dropdown for ARCHIVED dashboards (restore + hard delete)
+var archived_setting_template = '       \
+<ul class="nav navbar-nav">    \
+  <li class="dropdown">        \
+    <a href="#" class="dropdown-toggle" data-toggle="dropdown" style="padding: 2px 2px;"><span class="fa fa-fw fa-lg fa-cog" style="color: #999"></span></a>  \
+    <ul class="dropdown-menu" style="min-width: 140px;">                              \
+      <li onclick="restoreDash({0})"><a href="#"><span class="fa fa-fw fa-sm fa-undo action-restore"></span> Restore</a></li> \
+      <li class="divider" style="margin: auto;"></li>                                \
+      <li onclick="hardDeleteDash({0})"><a href="#"><span class="fa fa-fw fa-sm fa-times-circle action-delete"></span> Delete Permanently</a></li> \
+    </ul>  \
+  </li>    \
+</ul>'
+
+// legacy alias for backward compatibility
+var setting_template = active_setting_template;
 
 function deleteGraph(obj) {
     var grid = $('.grid-stack').data('gridstack');
@@ -402,9 +418,9 @@ function getDash(dash_id){
 }
 
 
-function getDashList(){
-    // var url = "http://127.0.0.1:9090/data/dashes/";
-    var url = api_root + "data/dashes/";
+function getDashList(status){
+    status = status || 'active';
+    var url = api_root + "data/dashes/?status=" + status;
     var resJson = $.ajax({
         url: url,
         method: "GET",
@@ -425,11 +441,74 @@ function getDashList(){
 }
 
 
-function initDashList(){
-    var list = getDashList();
+// =============================================
+// Archive feature: tab state and request guard
+// =============================================
+var currentView = 'active';
+var _archiveRequestInFlight = {};
+
+function switchView(view) {
+    currentView = view;
+    // Update tab active state
+    $("#dash-tabs li").removeClass("active");
+    $("#tab-" + view).addClass("active");
+    loadDashList(view);
+}
+
+
+function showEmptyState(message) {
+    $("#empty-state-text").text(message);
+    $("#empty-state").show();
+    $("#my").hide();
+}
+
+
+function hideEmptyState() {
+    $("#empty-state").hide();
+    $("#my").show();
+}
+
+
+function updateBadgeCounts() {
+    // Fetch both lists to get accurate counts
+    var activeList = getDashList('active');
+    var archivedList = getDashList('archived');
+
+    var activeCount = activeList ? activeList.length : 0;
+    var archivedCount = archivedList ? archivedList.length : 0;
+
+    $("#badge-active").text(activeCount);
+    $("#badge-archived").text(archivedCount);
+
+    // Style badges
+    $("#badge-active").toggleClass("badge-zero", activeCount === 0);
+    $("#badge-archived").toggleClass("badge-zero", archivedCount === 0);
+}
+
+
+function loadDashList(status) {
+    var list = getDashList(status);
     var tbody = $("#dash_list")[0];
-    // var url = "http://127.0.0.1:9090/dash/";
     var url = api_root + "dash/";
+
+    // Clear existing rows
+    tbody.innerHTML = "";
+
+    // Choose the correct action template
+    var actionTemplate = (status === 'archived') ? archived_setting_template : active_setting_template;
+
+    // Handle empty state
+    if (!list || list.length === 0) {
+        if (status === 'archived') {
+            showEmptyState("No archived dashboards.");
+        } else {
+            showEmptyState("No active dashboards. Create one with the Add button above.");
+        }
+        updateBadgeCounts();
+        return;
+    }
+
+    hideEmptyState();
 
     $.each(list, function(index, obj){
         var a = genElement("a");
@@ -446,13 +525,34 @@ function initDashList(){
         author.innerText = obj.author;
         time.innerText = moment(parseInt(obj.time_modified) * 1000).format("YYYY-MM-DD HH:mm:ss");
         i.className = "fa fa-fw fa-lg fa-cog";
-        action.innerHTML = strFormat(setting_template, obj.id);
+        action.innerHTML = strFormat(actionTemplate, obj.id);
+
+        // Add archived styling
+        if (obj.is_archived) {
+            tr.className = "archived-row";
+        }
+
         tr.appendChild(name);
         tr.appendChild(author);
         tr.appendChild(time);
         tr.appendChild(action);
         tbody.appendChild(tr);
     });
+
+    updateBadgeCounts();
+
+    // Re-init tablesorter on the refreshed table
+    try {
+        $("#my").trigger("update");
+    } catch(e) {
+        // tablesorter may not be initialized yet on first load
+    }
+}
+
+
+// Legacy initDashList - now just loads the active view
+function initDashList(){
+    loadDashList('active');
 
     $("#submit").on("click", function submit() {
         var newDash = {
@@ -461,12 +561,6 @@ function initDashList(){
         };
         console.log(api_root);
         $.ajax({
-            // I don't know why set url to api_root will cause an error here,
-            // need to take little time on diving into this. but it as the doc says:
-            // the default value of url is current page, so it works when leave out
-            // the url paramter, will take back to this later.
-            // url: api_root,
-            // url: "http://127.0.0.1:9090/",
             method: "POST",
             dataType: "JSONP",
             data: JSON.stringify(newDash),
@@ -494,21 +588,167 @@ function initDashList(){
 }
 
 
-function deleteDash(dash_id) {
+// =============================================
+// Archive / Restore / Hard Delete functions
+// =============================================
+
+function archiveDash(dash_id) {
+    // Prevent double-click
+    if (_archiveRequestInFlight[dash_id]) return;
+    _archiveRequestInFlight[dash_id] = true;
+
     $.ajax({
-        url: api_root + "data/dash/" + dash_id,
-        // url: strFormat("http://127.0.0.1:9090/data/dash/{0}", dash_id),
+        url: api_root + "data/dash/" + dash_id + "/archive",
+        method: "POST",
+        contentType: "application/json",
+    })
+    .done(function(data){
+        console.log("archive done", data);
+        if (data.code === 200) {
+            loadDashList(currentView);
+        }
+    })
+    .fail(function(xhr){
+        console.log("archive fail", xhr);
+        var msg = "Archive failed";
+        try {
+            var resp = xhr.responseJSON;
+            if (resp && resp.message) msg = resp.message;
+        } catch(e) {}
+        my_alert(msg, true);
+    })
+    .always(function(){
+        delete _archiveRequestInFlight[dash_id];
+    });
+}
+
+
+function restoreDash(dash_id) {
+    if (_archiveRequestInFlight[dash_id]) return;
+    _archiveRequestInFlight[dash_id] = true;
+
+    $.ajax({
+        url: api_root + "data/dash/" + dash_id + "/archive",
+        method: "PUT",
+        contentType: "application/json",
+    })
+    .done(function(data){
+        console.log("restore done", data);
+        if (data.code === 200) {
+            loadDashList(currentView);
+        }
+    })
+    .fail(function(xhr){
+        console.log("restore fail", xhr);
+        var msg = "Restore failed";
+        try {
+            var resp = xhr.responseJSON;
+            if (resp && resp.message) msg = resp.message;
+        } catch(e) {}
+        my_alert(msg, true);
+    })
+    .always(function(){
+        delete _archiveRequestInFlight[dash_id];
+    });
+}
+
+
+function hardDeleteDash(dash_id) {
+    if (!confirm("This will PERMANENTLY delete this dashboard. This cannot be undone. Continue?")) {
+        return;
+    }
+    if (_archiveRequestInFlight[dash_id]) return;
+    _archiveRequestInFlight[dash_id] = true;
+
+    $.ajax({
+        url: api_root + "data/dash/" + dash_id + "/archive",
         method: "DELETE",
         contentType: "application/json",
-        // async: false,
     })
-    .done(function(data){console.log("ajax done");})
-    .fail(function(){console.log("ajax fail")})
-    .success(function(){
-        location.reload();
+    .done(function(data){
+        console.log("hard delete done", data);
+        if (data.code === 200) {
+            loadDashList(currentView);
+        }
     })
-    .complete(function(){console.log("ajax complete")})
-    .always(function(){console.log("ajax always")});
+    .fail(function(xhr){
+        console.log("hard delete fail", xhr);
+        my_alert("Delete failed, please try again.", true);
+    })
+    .always(function(){
+        delete _archiveRequestInFlight[dash_id];
+    });
+}
+
+
+// Legacy deleteDash - now archives (backward compatible)
+function deleteDash(dash_id) {
+    archiveDash(dash_id);
+}
+
+
+// =============================================
+// Detail page: check archive status
+// =============================================
+
+function checkDashStatus() {
+    var dash_id = $("meta[name=dash_id]")[0].attributes.value.value;
+
+    // Fetch the full list (status=all) to find this dash
+    var allList = getDashList('all');
+    if (!allList) return;
+
+    var found = null;
+    $.each(allList, function(index, obj) {
+        if (String(obj.id) === String(dash_id)) {
+            found = obj;
+            return false; // break
+        }
+    });
+
+    if (found && found.is_archived) {
+        showArchivedBanner(dash_id);
+    }
+}
+
+
+function showArchivedBanner(dash_id) {
+    // Create banner if it doesn't exist
+    if ($("#archived-banner").length === 0) {
+        var banner = '<div id="archived-banner">' +
+            '<span>This dashboard is archived. It is still viewable and editable.</span>' +
+            '<button class="btn btn-sm btn-warning" onclick="restoreFromDetail(\'' + dash_id + '\')">Restore</button>' +
+            '</div>';
+        // Insert before the main content area
+        $(".container.container-box .main").before(banner);
+    }
+    $("#archived-banner").show();
+}
+
+
+function restoreFromDetail(dash_id) {
+    if (_archiveRequestInFlight[dash_id]) return;
+    _archiveRequestInFlight[dash_id] = true;
+
+    $.ajax({
+        url: api_root + "data/dash/" + dash_id + "/archive",
+        method: "PUT",
+        contentType: "application/json",
+    })
+    .done(function(data){
+        console.log("restore from detail done", data);
+        if (data.code === 200) {
+            $("#archived-banner").fadeOut(300);
+            my_alert("Dashboard restored successfully!");
+        }
+    })
+    .fail(function(xhr){
+        console.log("restore from detail fail", xhr);
+        my_alert("Restore failed, please try again.", true);
+    })
+    .always(function(){
+        delete _archiveRequestInFlight[dash_id];
+    });
 }
 
 /*

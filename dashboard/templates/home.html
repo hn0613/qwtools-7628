@@ -7,6 +7,26 @@
         <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#myModal"><i class="fa fa-fw fa-lg fa-plus"></i> Add</button>
     </div>
 
+    <!-- Active / Archived tab navigation -->
+    <ul class="nav nav-tabs" id="dash-tabs">
+        <li class="active" id="tab-active">
+            <a href="#" onclick="switchView('active'); return false;">
+                Active <span class="badge" id="badge-active"></span>
+            </a>
+        </li>
+        <li id="tab-archived">
+            <a href="#" onclick="switchView('archived'); return false;">
+                Archived <span class="badge" id="badge-archived"></span>
+            </a>
+        </li>
+    </ul>
+
+    <!-- Empty state message (hidden by default) -->
+    <div id="empty-state" class="empty-state" style="display: none;">
+        <i class="fa fa-fw fa-inbox"></i>
+        <span id="empty-state-text"></span>
+    </div>
+
     <div class="table-responsive">
         <table id="my" class="table table-hover" data-toggle="table">
             <thead>
@@ -59,12 +79,13 @@
 </script>
 
 <script type="text/javascript">
-    initDashList();
+    // Load both lists to populate badge counts, then show active view
+    loadDashList('active');
+    updateBadgeCounts();
     $(document).ready(function(){
         $(function(){
             $("#my").tablesorter({ sortList: [[2, 1]] });
         });
     });
-    // my_alert("welcome to the dashboard");
 </script>
 {% endblock %}

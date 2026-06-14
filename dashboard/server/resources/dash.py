@@ -107,3 +107,82 @@ class DashData(Resource):
         }
 
         return updated
+
+
+class DashArchive(Resource):
+    """Archive, restore and hard-delete operations for dashboards.
+
+    POST   /data/dash/<id>/archive  - archive (soft delete, reversible)
+    PUT    /data/dash/<id>/archive  - restore from archive
+    DELETE /data/dash/<id>/archive  - hard delete (permanent, irreversible)
+
+    Design: archived data stays in place in the original Redis keys
+    (DASH_ID_KEY, DASH_META_KEY, DASH_CONTENT_KEY). A separate sorted set
+    DASH_ARCHIVED_KEY tracks which dash_ids are archived. This means:
+    - archive/restore are zero-copy (no data movement)
+    - old data works without migration (not in archived set = active)
+    - content is byte-identical after an archive-restore round trip
+    """
+
+    def post(self, dash_id):
+        """Archive a dashboard (soft delete).
+
+        Adds dash_id to DASH_ARCHIVED_KEY with current time as score.
+        Data stays in place in all original Redis keys.
+        Idempotent: archiving an already-archived dash returns success
+        (updates the archive timestamp).
+        """
+        meta = r_db.hget(config.DASH_META_KEY, dash_id)
+        if not meta:
+            return build_response(dict(
+                data=None, code=404,
+                message='Dashboard {} not found'.format(dash_id)
+            ))
+
+        r_db.zadd(config.DASH_ARCHIVED_KEY, dash_id, time.time())
+
+        return build_response(dict(
+            data={'id': dash_id, 'action': 'archived'}, code=200
+        ))
+
+    def put(self, dash_id):
+        """Restore an archived dashboard.
+
+        Removes dash_id from DASH_ARCHIVED_KEY. Data stays in place.
+        Idempotent: restoring a non-archived dash returns success.
+        Does NOT update time_modified - original metadata is preserved.
+        """
+        meta = r_db.hget(config.DASH_META_KEY, dash_id)
+        if not meta:
+            return build_response(dict(
+                data=None, code=404,
+                message='Dashboard {} not found'.format(dash_id)
+            ))
+
+        r_db.zrem(config.DASH_ARCHIVED_KEY, dash_id)
+
+        return build_response(dict(
+            data={'id': dash_id, 'action': 'restored'}, code=200
+        ))
+
+    def delete(self, dash_id):
+        """Hard delete a dashboard permanently from all Redis keys.
+
+        Removes from DASH_ID_KEY, DASH_META_KEY, DASH_CONTENT_KEY,
+        and DASH_ARCHIVED_KEY. This is IRREVERSIBLE.
+        """
+        removed_info = dict(
+            time_modified=r_db.zscore(config.DASH_ID_KEY, dash_id),
+            meta=r_db.hget(config.DASH_META_KEY, dash_id),
+            content=r_db.hget(config.DASH_CONTENT_KEY, dash_id)
+        )
+
+        r_db.zrem(config.DASH_ID_KEY, dash_id)
+        r_db.hdel(config.DASH_META_KEY, dash_id)
+        r_db.hdel(config.DASH_CONTENT_KEY, dash_id)
+        r_db.zrem(config.DASH_ARCHIVED_KEY, dash_id)
+
+        return build_response(dict(
+            data={'id': dash_id, 'action': 'deleted',
+                  'removed_info': removed_info}, code=200
+        ))

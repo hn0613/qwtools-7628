@@ -66,26 +66,59 @@ class DashListData(Resource):
     1. DASH_ID_KEY -> Sorted Set : time_modified -> dash_id
     2. DASH_META_KEY -> hash : dash_id -> dash meta info
     3. DASH_CONTENT_KEY -> hash : dash_id -> dash content info [ like ipydb format ]
+    4. DASH_ARCHIVED_KEY -> Sorted Set : time_archived -> dash_id (tracks archived items)
+
+    Query parameters:
+        status: 'active' (default), 'archived', or 'all'
+        page: page number (default 0)
+        size: page size (default 100)
 
     Attributes:
     """
-    def get(self, page=0, size=10):
-        """Get dashboard meta info from in page `page` and page size is `size`.
+    def get(self, page=0, size=100):
+        """Get dashboard meta info, filtered by archive status.
 
         Args:
             page: page number.
             size: size number.
 
         Returns:
-            list of dict containing the dash_id and accordingly meta info.
-            maybe empty list [] when page * size > total dashes in db. that's reasonable.
+            list of dict containing the dash_id and accordingly meta info,
+            each with an 'is_archived' boolean field.
         """
+        status = request.args.get('status', 'active')
+        page = int(request.args.get('page', page))
+        size = int(request.args.get('size', size))
+
+        # Get archived IDs set for O(1) membership checks
+        archived_members = r_db.zrange(config.DASH_ARCHIVED_KEY, 0, -1)
+        archived_ids = set(str(i) for i in archived_members)
+
+        # Get all dash IDs (reverse chronological by time_modified)
         dash_list = r_db.zrevrange(config.DASH_ID_KEY, 0, -1, True)
-        id_list = dash_list[page * size : page * size + size]
-        dash_meta = []
+
+        # Filter by status
+        if status == 'active':
+            id_list = [i for i in dash_list if str(i[0]) not in archived_ids]
+        elif status == 'archived':
+            id_list = [i for i in dash_list if str(i[0]) in archived_ids]
+        else:
+            # 'all' - no filtering
+            id_list = dash_list
+
+        # Pagination
+        id_list = id_list[page * size : page * size + size]
+
         data = []
         if id_list:
             dash_meta = r_db.hmget(config.DASH_META_KEY, [i[0] for i in id_list])
-            data = [json.loads(i) for i in dash_meta]
+            for idx, raw in enumerate(dash_meta):
+                meta = json.loads(raw)
+                dash_id_str = str(id_list[idx][0])
+                meta['is_archived'] = dash_id_str in archived_ids
+                if meta['is_archived']:
+                    meta['time_archived'] = r_db.zscore(
+                        config.DASH_ARCHIVED_KEY, id_list[idx][0])
+                data.append(meta)
 
         return build_response(dict(data=data, code=200))
