@@ -23,7 +23,7 @@ def sender(obj, key, value="", meta={}, force=True):
     suffix = '-meta'
     # persistent key and value
     if (key in r_kv or key + suffix in r_kv) and not force:
-        print 'Collision: key: {}, or {} exists in storage'.format(key, key + suffix)
+        print('Collision: key: {}, or {} exists in storage'.format(key, key + suffix))
         return None
 
     value = value if value else obj.to_json()

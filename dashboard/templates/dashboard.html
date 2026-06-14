@@ -77,16 +77,13 @@
 <script type="text/javascript">
 
 $(document).ready(function() {
-    setTimeout(function(){}, 3000);
     initGridstack();
-    setTimeout(function(){console.log("hello")}, 3000);
-    createGrids();
+    createGrids();  // async -- handles its own success/error callbacks
     registerKeysFunc();
     getValue();
     $('.grid-stack').on('resizestop', function(){
         setTimeout(function(){window.dispatchEvent(new Event('resize'));}, 200);
     });
-    my_alert("loading done ...");
 });
 
 $('.btn-chart').click(function(e) {

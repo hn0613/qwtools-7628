@@ -24,6 +24,23 @@ def build_response(content, code=200):
     return response
 
 
+def build_error_response(message, http_code=400, data=None):
+    """Build structured error response, compatible with build_response format.
+
+    Args:
+        message: human-readable error description.
+        http_code: HTTP status code (400, 404, 500, etc.).
+        data: optional additional data to include in response.
+
+    Returns:
+        A Flask response with error status and structured JSON body.
+    """
+    return build_response(
+        dict(data=data, code=http_code, message=message, status='error'),
+        http_code
+    )
+
+
 color_set = {
     "red": u"\033[1;31m{}\033[0m", "green": u"\033[1;32m{}\033[0m",
     "yellow":u"\033[1;33m{}\033[0m", "blue": u"\033[1;34m{}\033[0m",
@@ -34,9 +51,9 @@ color_set = {
 
 def print_info(text, color='white', kill=False):
     global color_set
-    print 'color:', color  # for debug from logfile
+    print('color:', color)  # for debug from logfile
     template = color_set.get(color)
-    print template.format(text)
+    print(template.format(text))
     if kill:
         exit(-1)
 
@@ -46,9 +63,9 @@ def print_info(text, color='white', kill=False):
 def print_func_name(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
-        print '\n###start run fun:  {} ...'.format(func.__name__)
+        print('\n###start run fun:  {} ...'.format(func.__name__))
         result = func(*args, **kwargs)
-        print '\n###finish run fun:  {} ...'.format(func.__name__)
+        print('\n###finish run fun:  {} ...'.format(func.__name__))
         return result
     return wrapper
 
@@ -76,10 +93,10 @@ class Map(dict):
         super(Map, self).__init__(*args, **kwargs)
         for arg in args:
             if isinstance(arg, dict):
-                for k, v in arg.iteritems():
+                for k, v in arg.items():
                     self[k] = v
         if kwargs:
-            for k, v in kwargs.iteritems():
+            for k, v in kwargs.items():
                 self[k] = v
 
     def __getattr__(self, attr):
@@ -101,18 +118,17 @@ class Map(dict):
 
 
 class Singleton(type):
-    def __init__(cls, name, bases, dict):
-        super(Singleton, cls).__init__(name, bases, dict)
+    def __init__(cls, name, bases, dct):
+        super(Singleton, cls).__init__(name, bases, dct)
         cls.instance = None
 
-    def __call__(cls,*args,**kw):
+    def __call__(cls, *args, **kw):
         if cls.instance is None:
             cls.instance = super(Singleton, cls).__call__(*args, **kw)
         return cls.instance
 
 
-class SQL(object):
-    __metaclass__ = Singleton
+class SQL(Singleton('SQLBase', (object,), {})):
 
     """docstring for SQL"""
     def __init__(self, host, port, user, passwd, db):

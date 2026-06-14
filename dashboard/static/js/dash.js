@@ -133,55 +133,60 @@ function createGrids(){
 
     var grid = $('.grid-stack').data('gridstack');
     var dash_id = $("meta[name=dash_id]")[0].attributes.value.value;
-    var dash_content = getDash(dash_id);
-    store.set(strFormat("dash-{0}", dash_id), dash_content);
-    store.set("current-dash", strFormat("dash-{0}", dash_id));
 
-    var tmp = null;
-    var graph_with_key = {}
+    getDash(dash_id,
+        function(dash_content) {
+            // Success: build the grid layout
+            store.set(strFormat("dash-{0}", dash_id), dash_content);
+            store.set("current-dash", strFormat("dash-{0}", dash_id));
 
-    // initialized boxes using data from server & set key_name and type_name attribute
-    $("#dashboard_name")[0].value = dash_content.name;
-    $.each(dash_content.grid, function(index, obj){
-        tmp = grid.add_widget(strFormat(box_template, index), obj.x, obj.y, obj.width, obj.height);
-        tmp[0].setAttribute("graph-id", index);
-        $(tmp).find("input.input-title-level-2")[0].value = obj.graph_name;
-        $(tmp).find(".chart-graph")[0].setAttribute("key_name", obj.key);
-        $(tmp).find(".chart-graph")[0].setAttribute("type_name", obj.type);
-        $(tmp).find(".chart-graph")[0].setAttribute("graph_id", index);
-        graph_with_key[obj.id] = obj.key;
-    })
+            var tmp = null;
+            var graph_with_key = {}
 
-    // initialized graph data
-    current_dash = store.get(store.get("current-dash"));
-    $.each(graph_with_key, function(index, key){
-        if (key == "none"){
-            console.log("no key exist");
-        }else{
-            $.getJSON(api_root + "key/" + key, function(data){
-                store.set(key, $.parseJSON(data.data));
-                console.log($(strFormat("div [graph-id={0}] .chart-graph", index)));
-                initChart(current_dash.grid[index].type, index)
-                console.log($.parseJSON(data.data));
+            // initialized boxes using data from server & set key_name and type_name attribute
+            $("#dashboard_name")[0].value = dash_content.name;
+            $.each(dash_content.grid, function(index, obj){
+                tmp = grid.add_widget(strFormat(box_template, index), obj.x, obj.y, obj.width, obj.height);
+                tmp[0].setAttribute("graph-id", index);
+                $(tmp).find("input.input-title-level-2")[0].value = obj.graph_name;
+                $(tmp).find(".chart-graph")[0].setAttribute("key_name", obj.key);
+                $(tmp).find(".chart-graph")[0].setAttribute("type_name", obj.type);
+                $(tmp).find(".chart-graph")[0].setAttribute("graph_id", index);
+                graph_with_key[obj.id] = obj.key;
             })
-            // $.ajax({
-            //     url: api_root + "key/" + key,
-            //     method: "GET",
-            //     dataType: "JSONP",
-            //     contentType: "application/json",
-            //     async: false,
-            // })
-            // .success(function(data){
-            //     store.set(key, $.parseJSON(data.data));
-            //     initChart(current_dash.grid[index].type, index)
-            //     console.log($.parseJSON(data.data));
-            // })
-        }
-    })
 
-    // make it unmovable after init
-    $('.grid-stack').data('gridstack').movable('.grid-stack-item', false);
-    $('.grid-stack').data('gridstack').resizable('.grid-stack-item', false);
+            // initialized graph data
+            current_dash = store.get(store.get("current-dash"));
+            $.each(graph_with_key, function(index, key){
+                if (key == "none"){
+                    console.log("no key exist");
+                }else{
+                    $.getJSON(api_root + "key/" + key, function(data){
+                        store.set(key, $.parseJSON(data.data));
+                        console.log($(strFormat("div [graph-id={0}] .chart-graph", index)));
+                        initChart(current_dash.grid[index].type, index)
+                        console.log($.parseJSON(data.data));
+                    })
+                }
+            })
+
+            // make it unmovable after init
+            $('.grid-stack').data('gridstack').movable('.grid-stack-item', false);
+            $('.grid-stack').data('gridstack').resizable('.grid-stack-item', false);
+
+            my_alert("loading done ...");
+        },
+        function(error_msg) {
+            // Error: show not-found panel
+            $("#box-container").html(
+                '<div style="padding:40px;text-align:center;">' +
+                '<h3>Dashboard Not Found</h3>' +
+                '<p>' + error_msg + '</p>' +
+                '<a href="/" class="btn btn-primary">Back to Home</a></div>'
+            );
+            my_alert(error_msg, true);
+        }
+    );
 }
 
 // get all the keys from server
@@ -368,10 +373,17 @@ function saveDash(){
         contentType: "application/json"
     })
     .done(function(){console.log("ajax done")})
-    .fail(function(){console.log("ajax fail")})
+    .fail(function(){
+        my_alert("Save failed: could not reach server", true);
+    })
     .success(function(data){
         console.log("ajax success");
         console.log(data);
+        if (data && data.code >= 400) {
+            my_alert("Save failed: " + (data.message || "unknown error"), true);
+        } else {
+            my_alert("Dashboard saved successfully");
+        }
     })
     .complete(function(){console.log("ajax complete")})
     .always(function(){console.log("ajax always")})
@@ -379,26 +391,24 @@ function saveDash(){
 }
 
 
-function getDash(dash_id){
-    // var url = "http://127.0.0.1:9090/data/dash/" + dash_id;
-    var url = api_root + "data/dash/" + dash_id;
-    var resJson = $.ajax({
-        url: url,
+function getDash(dash_id, onSuccess, onError) {
+    $.ajax({
+        url: api_root + "data/dash/" + dash_id,
         method: "GET",
         contentType: "application/json",
-        async: false,
     })
-    .done(function(data){console.log("ajax done");})
-    .fail(function(){console.log("ajax fail")})
-    .success(function(data){
-        console.log("ajax success");
-        console.log(data);
-        return data;
+    .done(function(data) {
+        if (data && data.code === 404) {
+            if (onError) onError("Dashboard not found");
+        } else if (data && data.data) {
+            if (onSuccess) onSuccess(data.data);
+        } else {
+            if (onError) onError("Invalid dashboard data");
+        }
     })
-    .complete(function(){console.log("ajax complete")})
-    .always(function(){console.log("ajax always")});
-
-    return resJson.responseJSON.data;
+    .fail(function(xhr) {
+        if (onError) onError("Failed to load dashboard (server error)");
+    });
 }
 
 
@@ -421,7 +431,10 @@ function getDashList(){
     .complete(function(){console.log("ajax complete")})
     .always(function(){console.log("ajax always")});
 
-    return resJson.responseJSON.data;
+    if (resJson.responseJSON && resJson.responseJSON.data) {
+        return resJson.responseJSON.data;
+    }
+    return [];
 }
 
 
@@ -432,6 +445,7 @@ function initDashList(){
     var url = api_root + "dash/";
 
     $.each(list, function(index, obj){
+        if (!obj || !obj.id) return;  // skip empty/invalid records
         var a = genElement("a");
         var i = genElement("i");
         var tr = genElement("tr");
@@ -497,13 +511,13 @@ function initDashList(){
 function deleteDash(dash_id) {
     $.ajax({
         url: api_root + "data/dash/" + dash_id,
-        // url: strFormat("http://127.0.0.1:9090/data/dash/{0}", dash_id),
         method: "DELETE",
         contentType: "application/json",
-        // async: false,
     })
     .done(function(data){console.log("ajax done");})
-    .fail(function(){console.log("ajax fail")})
+    .fail(function(){
+        my_alert("Failed to delete dashboard", true);
+    })
     .success(function(){
         location.reload();
     })

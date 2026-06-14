@@ -2,15 +2,30 @@
 
 # built-in package
 import json
-import time
 
 # third-party package
 from flask import render_template, make_response, request, redirect
-from flask.ext.restful import Resource
+try:
+    from flask.ext.restful import Resource
+except ImportError:
+    from flask_restful import Resource
 
 # user-defined package
-from dashboard import r_db, config
-from ..utils import build_response
+from dashboard import config
+from ..utils import build_response, build_error_response
+from .dash_store import DashboardStore, DashboardValidationError, DashboardNotFoundError
+
+
+# Module-level store singleton
+_store = None
+
+
+def get_store():
+    """Return (and lazily create) the module-level DashboardStore instance."""
+    global _store
+    if _store is None:
+        _store = DashboardStore()
+    return _store
 
 
 class Home(Resource):
@@ -26,34 +41,18 @@ class Home(Resource):
 
     def post(self):
         post_data = request.json
-        self._create_dash(post_data.get('name'), post_data.get('author'))
+        name = ''
+        author = ''
+        if post_data:
+            raw_name = post_data.get('name', '')
+            raw_author = post_data.get('author', '')
+            name = raw_name.strip() if isinstance(raw_name, basestring) else ''
+            author = raw_author.strip() if isinstance(raw_author, basestring) else ''
+        try:
+            get_store().create(name, author)
+        except DashboardValidationError as e:
+            return build_error_response(str(e), 400)
         return redirect('/')
-
-    def _create_dash(self, name, author):
-        tmp_time = time.time()
-        meta = {'author': author, 'name': name, 'time_modified': tmp_time}
-        default_option = {"x": [], "y": []}
-        content = {
-            "0": {"x": 0, "y": 5, "width": 6, "height": 5, "key": "none", "type": "none", "option": default_option},
-            "1": {"x": 6, "y": 5, "width": 6, "height": 5, "key": "none", "type": "none", "option": default_option},
-            "2": {"x": 0, "y": 0, "width": 6, "height": 5, "key": "none", "type": "none", "option": default_option},
-            "3": {"x": 6, "y": 0, "width": 6, "height": 5, "key": "none", "type": "none", "option": default_option},
-        }
-
-        dash_id = r_db.zcount(config.DASH_ID_KEY, '-inf', '+inf') + 1
-        meta['time_modified'] = tmp_time
-        meta['id'] = dash_id
-        meta['author'] = author
-        meta['name'] = name
-        for i in content:
-            content[i].update({'graph_name': 'graph name ' + i, 'id': i})
-
-        content = dict(grid=content, name=meta['name'], id=dash_id)
-        r_db.zadd(config.DASH_ID_KEY, dash_id, tmp_time)
-        r_db.hset(config.DASH_META_KEY, dash_id, json.dumps(meta))
-        r_db.hset(config.DASH_CONTENT_KEY, dash_id, json.dumps(content))
-
-        return (dash_id, meta, content)
 
 
 class DashListData(Resource):
@@ -80,12 +79,5 @@ class DashListData(Resource):
             list of dict containing the dash_id and accordingly meta info.
             maybe empty list [] when page * size > total dashes in db. that's reasonable.
         """
-        dash_list = r_db.zrevrange(config.DASH_ID_KEY, 0, -1, True)
-        id_list = dash_list[page * size : page * size + size]
-        dash_meta = []
-        data = []
-        if id_list:
-            dash_meta = r_db.hmget(config.DASH_META_KEY, [i[0] for i in id_list])
-            data = [json.loads(i) for i in dash_meta]
-
+        data = get_store().list_meta(page, size)
         return build_response(dict(data=data, code=200))

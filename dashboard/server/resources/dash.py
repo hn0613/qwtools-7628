@@ -8,11 +8,27 @@ import hashlib
 
 # third-party package
 from flask import request, make_response, render_template, redirect
-from flask.ext.restful import Resource
+try:
+    from flask.ext.restful import Resource
+except ImportError:
+    from flask_restful import Resource
 
 # user-defined package
 from dashboard import r_db, config
-from ..utils import build_response, print_info
+from ..utils import build_response, build_error_response, print_info
+from .dash_store import DashboardStore, DashboardValidationError, DashboardNotFoundError
+
+
+# Module-level store singleton
+_store = None
+
+
+def get_store():
+    """Return (and lazily create) the module-level DashboardStore instance."""
+    global _store
+    if _store is None:
+        _store = DashboardStore()
+    return _store
 
 
 class Dash(Resource):
@@ -39,7 +55,8 @@ class Dash(Resource):
 class DashData(Resource):
     """Dashboard meta/content CRUD operation.
 
-    Create, read, update and delete dash operation.
+    All read/write operations go through DashboardStore for consistent
+    storage semantics, input validation, and error handling.
 
     Attributes:
     """
@@ -51,8 +68,12 @@ class DashData(Resource):
 
         Returns:
             A dict containing the content of that dashboard, not include the meta info.
+            Returns 404 error response if the dashboard does not exist.
         """
-        data = json.loads(r_db.hmget(config.DASH_CONTENT_KEY, dash_id)[0])
+        try:
+            data = get_store().get_content(dash_id)
+        except DashboardNotFoundError:
+            return build_error_response('Dashboard not found', 404)
         return build_response(dict(data=data, code=200))
 
     def put(self, dash_id=0):
@@ -63,47 +84,31 @@ class DashData(Resource):
 
         Returns:
             A dict containing the updated content of that dashboard, not include the meta info.
+            Returns 404 if dashboard does not exist, 400 if validation fails.
         """
         data = request.get_json()
-        updated = self._update_dash(dash_id, data)
+        if not data:
+            return build_error_response('Empty request body', 400)
+        try:
+            updated = get_store().update(dash_id, data)
+        except DashboardNotFoundError:
+            return build_error_response('Dashboard not found', 404)
+        except DashboardValidationError as e:
+            return build_error_response(str(e), 400)
         return build_response(dict(data=updated, code=200))
 
     def delete(self, dash_id):
-        """Delete a dash meta and content, return updated dash content.
-
-        Actually, just remove it to a specfied place in database.
+        """Delete a dash meta and content, return removed info.
 
         Args:
             dash_id: dashboard id.
 
         Returns:
-            Redirect to home page.
+            A dict containing info about the removed record.
+            Returns 404 if dashboard does not exist.
         """
-        removed_info = dict(
-            time_modified = r_db.zscore(config.DASH_ID_KEY, dash_id),
-            meta = r_db.hget(config.DASH_META_KEY, dash_id),
-            content = r_db.hget(config.DASH_CONTENT_KEY, dash_id))
-        r_db.zrem(config.DASH_ID_KEY, dash_id)
-        r_db.hdel(config.DASH_META_KEY, dash_id)
-        r_db.hdel(config.DASH_CONTENT_KEY, dash_id)
+        try:
+            removed_info = get_store().delete(dash_id)
+        except DashboardNotFoundError:
+            return build_error_response('Dashboard not found', 404)
         return {'removed_info': removed_info}
-        # return redirect('/')
-
-    def _update_dash(self, dash_id, data):
-        current_time = time.time()
-
-        meta = json.loads(r_db.hget(config.DASH_META_KEY, dash_id))
-        meta.update({'name': '' + data['name'],
-                     'time_modified': int(current_time)})
-        content = json.loads(r_db.hget(config.DASH_CONTENT_KEY, dash_id))
-        content.update(data)
-
-        r_db.hset(config.DASH_META_KEY, dash_id, json.dumps(meta))
-        r_db.hset(config.DASH_CONTENT_KEY, dash_id, json.dumps(data))
-
-        updated = {
-            "meta": r_db.hget(config.DASH_META_KEY, dash_id),
-            "content": r_db.hget(config.DASH_CONTENT_KEY, dash_id),
-        }
-
-        return updated
